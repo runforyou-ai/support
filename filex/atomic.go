@@ -60,7 +60,7 @@ func syncDir(dir string) error {
 		return err
 	}
 	err = file.Sync()
-	if errors.Is(err, errors.ErrUnsupported) || errors.Is(err, syscall.EINVAL) || errors.Is(err, syscall.ENOTSUP) {
+	if errors.Is(err, errors.ErrUnsupported) || errors.Is(err, syscall.EINVAL) {
 		err = nil
 	}
 	return errors.Join(err, file.Close())
