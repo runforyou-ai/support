@@ -8,9 +8,10 @@ import (
 )
 
 // IsHTTPURL reports whether s is an absolute http or https URL, such as a page
-// address opened in a browser. The scheme is matched case-insensitively, the
-// host name must be non-empty and user information is rejected; a path, query and
-// fragment are allowed. Surrounding whitespace is not trimmed.
+// address opened in a browser. Unlike IsHTTPOrigin, the scheme is matched
+// case-insensitively. The host name must be non-empty and user information is
+// rejected; a path, query and fragment are allowed. Surrounding whitespace is
+// not trimmed.
 func IsHTTPURL(s string) bool {
 	u, err := url.Parse(s)
 	return err == nil && u.IsAbs() && u.Hostname() != "" && u.User == nil &&
@@ -31,14 +32,12 @@ func IsHTTPOrigin(s string) bool {
 }
 
 // IsHTTPBaseURL reports whether s is an absolute http or https URL suitable as
-// an API base address. The host name must be non-empty, user information and a
-// non-empty query are rejected, and a path is allowed. s is parsed with
-// url.ParseRequestURI, so '#' does not start a fragment: it is rejected in the
-// host and kept as part of the path. Surrounding whitespace is not trimmed.
+// an API base address that request paths are appended to. The scheme is
+// matched case-insensitively, the host name must be non-empty, a path is
+// allowed, and user information, '?' and '#' are rejected anywhere in s.
+// Surrounding whitespace is not trimmed.
 func IsHTTPBaseURL(s string) bool {
-	u, err := url.ParseRequestURI(s)
-	return err == nil && u.IsAbs() && u.Hostname() != "" && u.User == nil &&
-		(u.Scheme == "http" || u.Scheme == "https") && u.RawQuery == "" && u.Fragment == ""
+	return IsHTTPURL(s) && !strings.ContainsAny(s, "?#")
 }
 
 // IsEmail reports whether s is a bare RFC 5322 address as accepted by

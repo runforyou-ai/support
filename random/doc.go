@@ -10,5 +10,5 @@
 //	key := random.Hex(16)               // 32 hex characters
 //	nonce := random.Base64URL(16)       // 22 URL-safe characters, no padding
 //	token, hash := random.Token(32)     // hand out token, store hash
-//	ok := random.HashToken(token) == hash
+//	ok := random.VerifyToken(token, hash)
 package random

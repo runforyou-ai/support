@@ -14,8 +14,8 @@ const binarySniffBytes = 8000
 // symbolic links are not followed, so a symlink inside root that points
 // elsewhere still counts as within. Resolve both paths with
 // filepath.EvalSymlinks first when links must be followed. An absolute path is
-// never within a relative root, or vice versa, and comparison is
-// case-sensitive on every platform.
+// never within a relative root, or vice versa. Path elements are compared
+// case-sensitively, except on Windows, where filepath.Rel ignores case.
 func Within(root, path string) bool {
 	rel, err := filepath.Rel(filepath.Clean(root), filepath.Clean(path))
 	if err != nil || filepath.IsAbs(rel) {

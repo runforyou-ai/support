@@ -18,7 +18,7 @@ import (
 // would land outside root, as with "../evil" (zip slip).
 func EntryPath(root, name string) (string, error) {
 	path := filepath.Join(root, filepath.FromSlash(name))
-	if !Within(root, path) {
+	if filepath.VolumeName(filepath.FromSlash(name)) != "" || !Within(root, path) {
 		return "", fmt.Errorf("filex: archive entry %q escapes target directory", name)
 	}
 	return path, nil
@@ -31,7 +31,9 @@ func EntryPath(root, name string) (string, error) {
 // when an entry would be written through a symbolic link extracted earlier,
 // when a symbolic link target is absolute or lexically outside root, or when
 // any extracted link, possibly through a chain of links, resolves outside
-// root. Entries extracted before an error are left in place.
+// root. Entries extracted before an error are left in place. The total size
+// and number of entries are not limited, so callers handling untrusted
+// archives should bound the archive size beforehand.
 func ExtractTarGz(archivePath, root string) error {
 	file, err := os.Open(archivePath)
 	if err != nil {
@@ -115,6 +117,7 @@ func ExtractTarGz(archivePath, root string) error {
 // It returns an error when an entry would escape root or be written through a
 // symbolic link that already exists under root. Entries extracted before an
 // error are left in place.
+// The total size and number of entries are not limited.
 func ExtractZip(archivePath, root string) error {
 	reader, err := zip.OpenReader(archivePath)
 	if err != nil {
@@ -184,7 +187,7 @@ func resolveFrom(base, name string, hops *int) (string, bool) {
 		if err != nil || *hops == 0 {
 			return "", false
 		}
-		*hops--
+		(*hops)--
 		resolved, ok := resolveFrom(base, target, hops)
 		if !ok {
 			return "", false

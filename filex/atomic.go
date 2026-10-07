@@ -9,7 +9,8 @@ import (
 
 // WriteAtomic writes data to path so that readers see either the old content
 // or the new content, never a partial write: it writes a temporary file in the
-// same directory, syncs it to disk and renames it over path. An existing
+// same directory, syncs it to disk, renames it over path and syncs the
+// directory where the platform supports it. An existing
 // regular file keeps its permission bits; a new file gets perm exactly, not
 // reduced by the umask. A symbolic link at path is replaced by a regular file
 // rather than followed, and any other existing non-regular file, such as a
@@ -38,5 +39,13 @@ func WriteAtomic(path string, data []byte, perm os.FileMode) error {
 	if err := os.Chmod(temp.Name(), mode); err != nil {
 		return err
 	}
-	return os.Rename(temp.Name(), path)
+	if err := os.Rename(temp.Name(), path); err != nil {
+		return err
+	}
+	// Syncing the directory persists the rename; platforms without directory sync ignore it.
+	if dir, err := os.Open(filepath.Dir(path)); err == nil {
+		_ = dir.Sync()
+		_ = dir.Close()
+	}
+	return nil
 }

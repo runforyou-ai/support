@@ -32,7 +32,7 @@ func ExampleSHA256Hex() {
 func ExampleToken() {
 	token, hash := random.Token(32)
 	fmt.Println(len(token), len(hash))
-	fmt.Println(random.HashToken(token) == hash)
+	fmt.Println(random.VerifyToken(token, hash))
 	// Output:
 	// 43 64
 	// true
@@ -41,4 +41,13 @@ func ExampleToken() {
 func ExampleHashToken() {
 	fmt.Println(random.HashToken("abc"))
 	// Output: ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
+}
+
+func ExampleVerifyToken() {
+	token, hash := random.Token(32)
+	fmt.Println(random.VerifyToken(token, hash))
+	fmt.Println(random.VerifyToken("guess", hash))
+	// Output:
+	// true
+	// false
 }

@@ -13,7 +13,9 @@ import (
 // once a write takes the file past the size limit, the file is renamed to
 // <path>.1, existing backups shift to <path>.2, <path>.3 and so on, backups
 // beyond the configured count are removed, and a new empty file is started.
-// It is safe for concurrent use. Create it with OpenRotating.
+// It is safe for concurrent use. Create it with OpenRotating. When rotation
+// fails, Write returns the error and the file stays closed, so later writes
+// return os.ErrClosed.
 type RotatingFile struct {
 	path    string
 	maxSize int64

@@ -129,3 +129,21 @@ func TestHashToken(t *testing.T) {
 		}
 	}
 }
+
+func TestVerifyToken(t *testing.T) {
+	token, hash := Token(32)
+	tests := []struct {
+		name, token, hash string
+		want              bool
+	}{
+		{"match", token, hash, true},
+		{"other token", token + "x", hash, false},
+		{"other hash", token, HashToken("other"), false},
+		{"empty hash", token, "", false},
+	}
+	for _, tt := range tests {
+		if got := VerifyToken(tt.token, tt.hash); got != tt.want {
+			t.Errorf("%s: VerifyToken = %v, want %v", tt.name, got, tt.want)
+		}
+	}
+}

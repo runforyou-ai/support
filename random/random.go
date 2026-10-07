@@ -3,6 +3,7 @@ package random
 import (
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/hex"
 )
@@ -40,8 +41,7 @@ func SHA256Hex(data []byte) string {
 
 // Token returns a random token of nBytes bytes encoded as unpadded URL-safe
 // base64, together with HashToken(token). Hand the token to the client and
-// store only the hash; verify a presented token by comparing its HashToken
-// with the stored hash. Token(32) yields a 256-bit token. Both results are ""
+// store only the hash; check a presented token with VerifyToken. Token(32) yields a 256-bit token. Both results are ""
 // when nBytes is zero or negative.
 func Token(nBytes int) (token, hash string) {
 	if nBytes <= 0 {
@@ -56,4 +56,10 @@ func Token(nBytes int) (token, hash string) {
 // SHA256Hex([]byte(token)).
 func HashToken(token string) string {
 	return SHA256Hex([]byte(token))
+}
+
+// VerifyToken reports whether HashToken(token) equals hash, comparing in
+// constant time.
+func VerifyToken(token, hash string) bool {
+	return subtle.ConstantTimeCompare([]byte(HashToken(token)), []byte(hash)) == 1
 }
