@@ -75,7 +75,9 @@ func parseString(s string) (number, error) {
 		return number{kind: kindUint, u: u}, nil
 	}
 	// An integer literal that fits neither int64 nor uint64 is only exact as a float.
-	wide := errors.Is(intErr, strconv.ErrRange)
+	digits := strings.TrimLeft(s, "+-")
+	wide := errors.Is(intErr, strconv.ErrRange) && len(s)-len(digits) <= 1 &&
+		strings.Trim(digits, "0123456789") == ""
 	// Hexadecimal literals and digit separators are not decimal input.
 	if strings.ContainsAny(s, "xX_") {
 		return number{}, fmt.Errorf("convert: %w", &strconv.NumError{Func: "ParseFloat", Num: s, Err: strconv.ErrSyntax})

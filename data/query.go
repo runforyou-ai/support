@@ -24,20 +24,21 @@ func Query(m map[string]any) string {
 
 // appendQuery appends the encoded pairs for v under key to parts.
 func appendQuery(parts []string, key string, v any) []string {
-	// Pointers without String or Error methods are dereferenced before containers are expanded.
-	for rv := reflect.ValueOf(v); rv.Kind() == reflect.Pointer; rv = rv.Elem() {
+	// Nil pointers are skipped, and other pointers without String or Error methods are dereferenced.
+	for {
+		rv := reflect.ValueOf(v)
+		if rv.Kind() != reflect.Pointer {
+			break
+		}
 		if rv.IsNil() {
 			return parts
 		}
-		if _, ok := v.(fmt.Stringer); ok {
-			break
-		}
-		if _, ok := v.(error); ok {
+		if isTextual(v) {
 			break
 		}
 		v = rv.Elem().Interface()
 	}
-	if _, isBytes := v.([]byte); !isBytes {
+	if !isTextual(v) {
 		if keys, vals, ok := entries(v); ok {
 			for i, k := range keys {
 				parts = appendQuery(parts, key+"["+k+"]", vals[i])
@@ -50,6 +51,16 @@ func appendQuery(parts []string, key string, v any) []string {
 		return parts
 	}
 	return append(parts, url.QueryEscape(key)+"="+url.QueryEscape(s))
+}
+
+// isTextual reports whether v encodes as a single value even when it is a
+// container: byte slices, Stringers and errors.
+func isTextual(v any) bool {
+	switch v.(type) {
+	case []byte, fmt.Stringer, error:
+		return true
+	}
+	return false
 }
 
 // scalar formats v as a query value and reports false for nil values.

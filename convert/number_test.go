@@ -81,6 +81,7 @@ func TestToInt64(t *testing.T) {
 		numCase{"string uint overflow", "9223372036854775808", nil, ErrOutOfRange},
 		numCase{"string huge", "99999999999999999999", nil, ErrOutOfRange},
 		numCase{"string below min", "-9223372036854775809", nil, ErrOutOfRange},
+		numCase{"string long exponent", "100000000000000000000e-20", 1, nil},
 	)
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {

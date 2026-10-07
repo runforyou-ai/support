@@ -3,6 +3,7 @@ package data
 import (
 	"errors"
 	"math/big"
+	"net"
 	"net/url"
 	"testing"
 	"time"
@@ -17,6 +18,11 @@ func TestQuery(t *testing.T) {
 	list := []any{"x"}
 	empty := m{}
 	pp := &n
+	seven := 7
+	var boxed any = &seven
+	var boxedBytes any = []byte("hi")
+	var boxedNil any = (*int)(nil)
+	ip := net.IP{127, 0, 0, 1}
 	tests := []struct {
 		name string
 		in   m
@@ -38,6 +44,11 @@ func TestQuery(t *testing.T) {
 		{"pointer to slice", m{"a": &list}, "a%5B0%5D=x"},
 		{"pointer to empty map", m{"a": &empty, "c": 1}, "c=1"},
 		{"pointer stringer", m{"n": big.NewInt(42)}, "n=42"},
+		{"pointer through interface", m{"v": &boxed}, "v=7"},
+		{"bytes through interface", m{"b": &boxedBytes}, "b=hi"},
+		{"nil pointer through interface", m{"p": &boxedNil, "c": 1}, "c=1"},
+		{"stringer container pointer", m{"ip": &ip}, "ip=127.0.0.1"},
+		{"stringer container", m{"ip": ip}, "ip=127.0.0.1"},
 		{"pointer error", m{"e": &url.Error{Op: "Get", URL: "u", Err: errors.New("x")}}, "e=Get+%22u%22%3A+x"},
 		{"numbers", m{"i": int8(-3), "u": uint(4), "f": 1.5, "g": float32(0.25)}, "f=1.5&g=0.25&i=-3&u=4"},
 		{"named kinds", m{"t": tier(2), "l": level("hi"), "b": namedBool(true)}, "b=1&l=hi&t=2"},
