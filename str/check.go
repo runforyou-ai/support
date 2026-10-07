@@ -88,6 +88,17 @@ func IsUUID(s string) bool {
 	return true
 }
 
+// NormalizeUUID trims surrounding whitespace from s and returns it in
+// lowercase when the rest is a UUID accepted by IsUUID. It returns "" and
+// false otherwise, so braced and "urn:uuid:" forms are rejected.
+func NormalizeUUID(s string) (string, bool) {
+	s = strings.TrimSpace(s)
+	if !IsUUID(s) {
+		return "", false
+	}
+	return strings.ToLower(s), true
+}
+
 // isHex reports whether c is an ASCII hexadecimal digit.
 func isHex(c byte) bool {
 	return '0' <= c && c <= '9' || 'a' <= c && c <= 'f' || 'A' <= c && c <= 'F'

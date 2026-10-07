@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 	"time"
@@ -25,29 +26,27 @@ func ExampleFilled() {
 	// Output: true false
 }
 
-func ExampleDefault() {
-	fmt.Println(support.Default("", "nickname", "name"))
-	fmt.Println(support.Default(0, 0, 20))
-	// Output:
-	// nickname
-	// 20
+func ExampleNilIfZero() {
+	fmt.Println(support.NilIfZero("") == nil, *support.NilIfZero("bob"))
+	// Output: true bob
 }
 
-func ExamplePtr() {
-	p := support.Ptr(42)
-	fmt.Println(*p)
-	// Output: 42
+func ExampleMapPtr() {
+	var missing *string
+	name := new("bob")
+	fmt.Println(support.MapPtr(missing, strings.ToUpper) == nil, *support.MapPtr(name, strings.ToUpper))
+	// Output: true BOB
 }
 
 func ExampleDeref() {
 	var limit *int
-	fmt.Println(support.Deref(limit), support.Deref(support.Ptr(5)))
+	fmt.Println(support.Deref(limit), support.Deref(new(5)))
 	// Output: 0 5
 }
 
 func ExampleDerefOr() {
 	var limit *int
-	fmt.Println(support.DerefOr(limit, 20), support.DerefOr(support.Ptr(5), 20))
+	fmt.Println(support.DerefOr(limit, 20), support.DerefOr(new(5), 20))
 	// Output: 20 5
 }
 
@@ -159,4 +158,30 @@ func ExampleRescue() {
 	// 42
 	// -1
 	// -1
+}
+
+func ExampleCatch() {
+	err := support.Catch(func() error { return errors.New("failed") })
+	fmt.Println(err)
+
+	err = support.Catch(func() error { panic("boom") })
+	var pe *support.PanicError
+	fmt.Println(errors.As(err, &pe), pe.Value)
+	// Output:
+	// failed
+	// true boom
+}
+
+func ExampleNewPanicError() {
+	run := func() (err error) {
+		defer func() {
+			if r := recover(); r != nil {
+				err = support.NewPanicError(r)
+			}
+		}()
+		panic(io.ErrUnexpectedEOF)
+	}
+	err := run()
+	fmt.Println(errors.Is(err, io.ErrUnexpectedEOF))
+	// Output: true
 }

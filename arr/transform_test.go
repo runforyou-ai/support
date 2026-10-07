@@ -206,3 +206,56 @@ func TestJoin(t *testing.T) {
 		})
 	}
 }
+
+func TestMapErr(t *testing.T) {
+	tests := []struct {
+		name    string
+		s       []string
+		want    []int
+		wantErr bool
+		calls   int
+	}{
+		{"nil", nil, nil, false, 0},
+		{"empty", []string{}, nil, false, 0},
+		{"all ok", []string{"1", "2", "3"}, []int{1, 2, 3}, false, 3},
+		{"stops at first error", []string{"1", "x", "y"}, nil, true, 2},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			calls := 0
+			got, err := MapErr(tt.s, func(s string) (int, error) {
+				calls++
+				return strconv.Atoi(s)
+			})
+			if (err != nil) != tt.wantErr || !slices.Equal(got, tt.want) || (got == nil) != (tt.want == nil) {
+				t.Fatalf("MapErr() = %v, %v; want %v, error %v", got, err, tt.want, tt.wantErr)
+			}
+			if calls != tt.calls {
+				t.Fatalf("MapErr() called fn %d times; want %d", calls, tt.calls)
+			}
+		})
+	}
+}
+
+func TestOrEmpty(t *testing.T) {
+	tests := []struct {
+		name string
+		s    ints
+		want ints
+	}{
+		{"nil", nil, ints{}},
+		{"empty", ints{}, ints{}},
+		{"values", ints{1, 2}, ints{1, 2}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := OrEmpty(tt.s)
+			if got == nil || !slices.Equal(got, tt.want) {
+				t.Fatalf("OrEmpty() = %#v; want %#v", got, tt.want)
+			}
+			if len(tt.s) > 0 && &got[0] != &tt.s[0] {
+				t.Fatalf("OrEmpty() did not return its non-nil input")
+			}
+		})
+	}
+}

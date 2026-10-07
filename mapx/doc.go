@@ -2,7 +2,8 @@
 // package: key selection, predicate filtering, lookups with fallbacks, key and
 // value transformation, merging and ordered iteration.
 //
-// Functions never modify their input and always return a new, non-nil map.
+// Functions never modify their input and always return a non-nil map, which is
+// a new map except for OrEmpty given a non-nil map.
 // Nil maps are valid input everywhere.
 //
 // Example:

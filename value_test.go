@@ -49,7 +49,7 @@ func TestBlankAndFilled(t *testing.T) {
 		{"true", true, false},
 		{"zero struct", point{}, false},
 		{"struct", point{1, 2}, false},
-		{"pointer", Ptr(0), false},
+		{"pointer", new(0), false},
 		{"func", func() {}, false},
 	}
 	for _, tt := range tests {
@@ -64,58 +64,6 @@ func TestBlankAndFilled(t *testing.T) {
 	}
 }
 
-func TestDefault(t *testing.T) {
-	strs := []struct {
-		name   string
-		values []string
-		want   string
-	}{
-		{"no values", nil, ""},
-		{"all zero", []string{"", ""}, ""},
-		{"first", []string{"a", "b"}, "a"},
-		{"skips zero", []string{"", "b", "c"}, "b"},
-		{"whitespace is not zero", []string{" ", "b"}, " "},
-	}
-	for _, tt := range strs {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := Default(tt.values...); got != tt.want {
-				t.Errorf("Default(%q) = %q, want %q", tt.values, got, tt.want)
-			}
-		})
-	}
-	ints := []struct {
-		values []int
-		want   int
-	}{
-		{[]int{0, 0, 3}, 3},
-		{[]int{-1, 2}, -1},
-		{[]int{0}, 0},
-	}
-	for _, tt := range ints {
-		if got := Default(tt.values...); got != tt.want {
-			t.Errorf("Default(%v) = %d, want %d", tt.values, got, tt.want)
-		}
-	}
-	if got := Default(point{}, point{1, 2}); got != (point{1, 2}) {
-		t.Errorf("Default(structs) = %v, want {1 2}", got)
-	}
-}
-
-func TestPtr(t *testing.T) {
-	v := 5
-	p := Ptr(v)
-	if p == &v || *p != 5 {
-		t.Fatalf("Ptr(5) = %p (%d), want a new pointer to 5", p, *p)
-	}
-	*p = 6
-	if v != 5 {
-		t.Errorf("Ptr mutated its argument: v = %d", v)
-	}
-	if got := *Ptr("s"); got != "s" {
-		t.Errorf("*Ptr(%q) = %q", "s", got)
-	}
-}
-
 func TestDeref(t *testing.T) {
 	tests := []struct {
 		name string
@@ -123,8 +71,8 @@ func TestDeref(t *testing.T) {
 		want int
 	}{
 		{"nil", nil, 0},
-		{"zero", Ptr(0), 0},
-		{"value", Ptr(42), 42},
+		{"zero", new(0), 0},
+		{"value", new(42), 42},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -146,8 +94,8 @@ func TestDerefOr(t *testing.T) {
 		want     string
 	}{
 		{"nil", nil, "fallback", "fallback"},
-		{"empty value is kept", Ptr(""), "fallback", ""},
-		{"value", Ptr("v"), "fallback", "v"},
+		{"empty value is kept", new(""), "fallback", ""},
+		{"value", new("v"), "fallback", "v"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -225,5 +173,73 @@ func TestTransform(t *testing.T) {
 	}
 	if got := Transform(0, func(n int) int { return n + 1 }, -1); got != 1 {
 		t.Errorf("Transform(0) = %d, want 1", got)
+	}
+}
+
+func TestNilIfZero(t *testing.T) {
+	ints := []struct {
+		name string
+		v    int
+		nil  bool
+	}{
+		{"zero", 0, true},
+		{"positive", 3, false},
+		{"negative", -1, false},
+	}
+	for _, tt := range ints {
+		t.Run(tt.name, func(t *testing.T) {
+			got := NilIfZero(tt.v)
+			if (got == nil) != tt.nil || (got != nil && *got != tt.v) {
+				t.Errorf("NilIfZero(%d) = %v, want nil=%v", tt.v, got, tt.nil)
+			}
+		})
+	}
+	strs := []struct {
+		v   string
+		nil bool
+	}{
+		{"", true},
+		{" ", false},
+		{"a", false},
+	}
+	for _, tt := range strs {
+		if got := NilIfZero(tt.v); (got == nil) != tt.nil || (got != nil && *got != tt.v) {
+			t.Errorf("NilIfZero(%q) = %v, want nil=%v", tt.v, got, tt.nil)
+		}
+	}
+	if got := NilIfZero(point{}); got != nil {
+		t.Errorf("NilIfZero(point{}) = %v, want nil", got)
+	}
+	v := point{1, 2}
+	p := NilIfZero(v)
+	p.X = 9
+	if v.X != 1 {
+		t.Errorf("NilIfZero did not copy its argument: v = %v", v)
+	}
+}
+
+func TestMapPtr(t *testing.T) {
+	length := func(s string) int { return len(s) }
+	tests := []struct {
+		name string
+		p    *string
+		want *int
+	}{
+		{"nil", nil, nil},
+		{"empty", new(""), new(0)},
+		{"value", new("abc"), new(3)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := MapPtr(tt.p, length)
+			if (got == nil) != (tt.want == nil) || (got != nil && *got != *tt.want) {
+				t.Errorf("MapPtr() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+	called := false
+	MapPtr((*int)(nil), func(int) int { called = true; return 0 })
+	if called {
+		t.Error("MapPtr called fn for a nil pointer")
 	}
 }

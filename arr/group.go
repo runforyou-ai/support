@@ -10,6 +10,18 @@ func KeyBy[E any, K comparable](s []E, fn func(E) K) map[K]E {
 	return out
 }
 
+// Associate returns a map holding the key and value pair fn returns for each
+// element of s. When several elements share a key, the later element wins.
+// The result is never nil.
+func Associate[E any, K comparable, V any](s []E, fn func(E) (K, V)) map[K]V {
+	out := make(map[K]V, len(s))
+	for _, e := range s {
+		k, v := fn(e)
+		out[k] = v
+	}
+	return out
+}
+
 // GroupBy groups the elements of s by fn(element). Each group keeps the order
 // of s. The result is never nil.
 func GroupBy[E any, K comparable](s []E, fn func(E) K) map[K][]E {

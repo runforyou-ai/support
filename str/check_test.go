@@ -121,6 +121,30 @@ func TestIsUUID(t *testing.T) {
 	}
 }
 
+func TestNormalizeUUID(t *testing.T) {
+	tests := []struct {
+		s    string
+		want string
+		ok   bool
+	}{
+		{"a0a2a2d2-0b87-4a18-83f2-2529882be2de", "a0a2a2d2-0b87-4a18-83f2-2529882be2de", true},
+		{"A0A2A2D2-0B87-4A18-83F2-2529882BE2DE", "a0a2a2d2-0b87-4a18-83f2-2529882be2de", true},
+		{" \tA0A2A2D2-0b87-4a18-83f2-2529882be2de\n", "a0a2a2d2-0b87-4a18-83f2-2529882be2de", true},
+		{"{a0a2a2d2-0b87-4a18-83f2-2529882be2de}", "", false},
+		{"urn:uuid:a0a2a2d2-0b87-4a18-83f2-2529882be2de", "", false},
+		{"a0a2a2d20b874a1883f22529882be2de", "", false},
+		{"a0a2a2d2-0b87-4a18-83f2-2529882be2d", "", false},
+		{"  ", "", false},
+		{"", "", false},
+	}
+	for _, tt := range tests {
+		got, ok := NormalizeUUID(tt.s)
+		if got != tt.want || ok != tt.ok {
+			t.Errorf("NormalizeUUID(%q) = %q, %v, want %q, %v", tt.s, got, ok, tt.want, tt.ok)
+		}
+	}
+}
+
 func TestIsULID(t *testing.T) {
 	tests := []struct {
 		s    string

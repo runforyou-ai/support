@@ -76,6 +76,12 @@ func ExampleAdd() {
 	// a=1 b=2
 }
 
+func ExampleOrEmpty() {
+	var labels map[string]string
+	fmt.Println(labels == nil, mapx.OrEmpty(labels) == nil, len(mapx.OrEmpty(labels)))
+	// Output: true false 0
+}
+
 func ExampleMerge() {
 	defaults := map[string]int{"port": 80, "workers": 4}
 	overrides := map[string]int{"port": 8080}

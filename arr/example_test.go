@@ -59,6 +59,22 @@ func ExampleMap() {
 	// Output: ["1" "2" "3"]
 }
 
+func ExampleMapErr() {
+	nums, err := arr.MapErr([]string{"1", "2"}, strconv.Atoi)
+	fmt.Println(nums, err)
+	nums, err = arr.MapErr([]string{"1", "x"}, strconv.Atoi)
+	fmt.Println(nums == nil, err)
+	// Output:
+	// [1 2] <nil>
+	// true strconv.Atoi: parsing "x": invalid syntax
+}
+
+func ExampleOrEmpty() {
+	var tags []string
+	fmt.Println(tags == nil, arr.OrEmpty(tags) == nil, len(arr.OrEmpty(tags)))
+	// Output: true false 0
+}
+
 func ExampleFilterMap() {
 	nums := arr.FilterMap([]string{"1", "x", "3"}, func(s string) (int, bool) {
 		n, err := strconv.Atoi(s)
@@ -106,6 +122,16 @@ func ExampleJoin() {
 	// a, b and c
 	// a or b
 	// a, b, c
+}
+
+func ExampleAssociate() {
+	type user struct {
+		ID   int
+		Name string
+	}
+	names := arr.Associate([]user{{1, "Ann"}, {2, "Bob"}}, func(u user) (int, string) { return u.ID, u.Name })
+	fmt.Println(names)
+	// Output: map[1:Ann 2:Bob]
 }
 
 func ExampleKeyBy() {
