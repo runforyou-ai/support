@@ -80,6 +80,7 @@ func TestToInt64(t *testing.T) {
 		numCase{"string max", "9223372036854775807", int64(math.MaxInt64), nil},
 		numCase{"string uint overflow", "9223372036854775808", nil, ErrOutOfRange},
 		numCase{"string huge", "99999999999999999999", nil, ErrOutOfRange},
+		numCase{"string below min", "-9223372036854775809", nil, ErrOutOfRange},
 	)
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -115,6 +116,7 @@ func TestToUint64(t *testing.T) {
 		numCase{"max", uint64(math.MaxUint64), uint64(math.MaxUint64), nil},
 		numCase{"string max", "18446744073709551615", uint64(math.MaxUint64), nil},
 		numCase{"string overflow", "18446744073709551616", nil, ErrOutOfRange},
+		numCase{"string below min int64", "-9223372036854775809", nil, ErrOutOfRange},
 		numCase{"negative int", -1, nil, ErrOutOfRange},
 		numCase{"negative string", "-1", nil, ErrOutOfRange},
 		numCase{"negative float", -1.5, nil, ErrOutOfRange},
@@ -142,6 +144,7 @@ func TestToFloat64(t *testing.T) {
 		{"float32", float32(0.5), 0.5, nil},
 		{"string", " 1.25 ", 1.25, nil},
 		{"string int", "7", 7.0, nil},
+		{"string wide int", "-9223372036854775809", -9223372036854775809.0, nil},
 		{"string inf", "Inf", math.Inf(1), nil},
 		{"json number", json.Number("-0.75"), -0.75, nil},
 		{"duration", time.Microsecond, 1000.0, nil},

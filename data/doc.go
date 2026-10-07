@@ -7,8 +7,8 @@
 // Readers also traverse other maps with string keys, slices and arrays;
 // writers traverse only map[string]any and []any.
 //
-// Set, Fill and Forget modify their target in place. Every other function
-// leaves its input unchanged.
+// No function modifies its input: Set, Fill and Forget return a new map in
+// which the maps and slices along the path are copied.
 //
 // Example:
 //
@@ -17,5 +17,5 @@
 //
 //	name := data.GetOr(doc, "user.name", "anonymous")
 //	emails, _ := data.Get(doc, "users.*.email")
-//	data.Set(doc, "user.settings.theme", "dark")
+//	doc = data.Set(doc, "user.settings.theme", "dark")
 package data

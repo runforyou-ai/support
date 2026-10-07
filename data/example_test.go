@@ -62,9 +62,9 @@ func ExampleSet() {
 	doc := map[string]any{
 		"users": []any{map[string]any{"name": "Ann"}, map[string]any{"name": "Bob"}},
 	}
-	data.Set(doc, "settings.theme", "dark")
-	data.Set(doc, "users.*.active", true)
-	data.Set(doc, "users.1.name", "Bobby")
+	doc = data.Set(doc, "settings.theme", "dark")
+	doc = data.Set(doc, "users.*.active", true)
+	doc = data.Set(doc, "users.1.name", "Bobby")
 	fmt.Println(doc["settings"])
 	fmt.Println(doc["users"])
 	// Output:
@@ -74,8 +74,8 @@ func ExampleSet() {
 
 func ExampleFill() {
 	doc := map[string]any{"theme": "light"}
-	data.Fill(doc, "theme", "dark")
-	data.Fill(doc, "lang", "en")
+	doc = data.Fill(doc, "theme", "dark")
+	doc = data.Fill(doc, "lang", "en")
 	fmt.Println(doc)
 	// Output:
 	// map[lang:en theme:light]
@@ -86,8 +86,8 @@ func ExampleForget() {
 		"user":  map[string]any{"name": "Ann", "password": "secret"},
 		"users": []any{map[string]any{"name": "Bob", "password": "x"}},
 	}
-	data.Forget(doc, "user.password")
-	data.Forget(doc, "users.*.password")
+	doc = data.Forget(doc, "user.password")
+	doc = data.Forget(doc, "users.*.password")
 	fmt.Println(doc)
 	// Output:
 	// map[user:map[name:Ann] users:[map[name:Bob]]]

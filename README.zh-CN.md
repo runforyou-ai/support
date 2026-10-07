@@ -46,7 +46,7 @@ err := support.Retry(ctx, 3, send, support.WithExponentialBackoff(100*time.Milli
 
 - 只补标准库缺少的能力，不包装 `strings`、`slices`、`maps`、`cmp` 已有的函数。
 - 字符串函数按字符（rune）计算长度、位置和截断，多字节文本结果正确。
-- 普通输入不会 panic，也不修改传入的参数；`data.Set`、`data.Fill`、`data.Forget` 是文档注明的原地写入例外。
+- 普通输入不会 panic，也不修改传入的参数；`data.Set` 等写入函数返回新值。
 - 不包含路径、配置、路由等框架相关功能。
 
 ## 许可证

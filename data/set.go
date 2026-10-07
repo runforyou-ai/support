@@ -1,89 +1,93 @@
 package data
 
 import (
+	"maps"
 	"reflect"
 	"slices"
 )
 
-// Set modifies target in place, storing value at path and overwriting any
-// existing value, like Laravel's data_set.
+// Set returns a copy of target with value stored at path, overwriting any
+// existing value, like Laravel's data_set. Maps and slices along the path
+// are copied; other nested values are shared with target, which is never
+// modified.
 //
-// Missing intermediate segments are created as map[string]any, and existing
-// intermediate values that are not maps or slices are replaced by one.
-// Numeric segments index existing []any elements; an index that is out of
-// range, or a non-numeric segment applied to a slice, leaves target
-// unchanged because slices cannot grow in place. A "*" segment applies the
-// rest of the path to every existing value of a map or element of a slice.
-// Only map[string]any and []any are traversed; other map and slice types are
-// left untouched. A nil target or an empty path does nothing.
-func Set(target map[string]any, path string, value any) {
-	if target == nil || path == "" {
-		return
-	}
-	assign(target, splitPath(path), value, true)
+// Missing or nil intermediate segments are created as map[string]any, and
+// existing intermediate values that are not maps or slices are replaced by
+// one. Numeric segments index existing []any elements; an index that is out
+// of range, or a non-numeric segment applied to a slice, changes nothing. A
+// "*" segment applies the rest of the path to every existing value of a map
+// or element of a slice. Only map[string]any and []any are traversed; other
+// map and slice types are left as they are. A nil target is treated as an
+// empty map, and an empty path returns a shallow copy of target.
+func Set(target map[string]any, path string, value any) map[string]any {
+	return write(target, path, value, true)
 }
 
-// Fill modifies target in place, storing value at path only when nothing
+// Fill returns a copy of target with value stored at path only when nothing
 // exists there yet. It creates missing intermediate maps like Set but never
 // replaces existing values, including nil values and intermediate values
-// that are not containers.
-func Fill(target map[string]any, path string, value any) {
-	if target == nil || path == "" {
-		return
-	}
-	assign(target, splitPath(path), value, false)
+// that are not containers. target is never modified.
+func Fill(target map[string]any, path string, value any) map[string]any {
+	return write(target, path, value, false)
 }
 
-// assign stores value at segs below the container node.
-func assign(node any, segs []string, value any, overwrite bool) {
+// write implements Set and Fill.
+func write(target map[string]any, path string, value any, overwrite bool) map[string]any {
+	if path == "" {
+		return maps.Clone(target)
+	}
+	if target == nil {
+		target = map[string]any{}
+	}
+	return assign(target, splitPath(path), value, overwrite).(map[string]any)
+}
+
+// assign returns a copy of the container node with value stored at segs.
+func assign(node any, segs []string, value any, overwrite bool) any {
 	seg, rest := segs[0], segs[1:]
 	switch n := node.(type) {
 	case map[string]any:
+		out := make(map[string]any, len(n)+1)
+		maps.Copy(out, n)
 		if seg == wildcard {
 			for k, v := range n {
-				if len(rest) == 0 {
-					if overwrite {
-						n[k] = value
-					}
-				} else if c, store := descend(v, true, rest, value, overwrite); store {
-					n[k] = c
+				if c, store := place(v, true, rest, value, overwrite); store {
+					out[k] = c
 				}
 			}
-			return
+			return out
 		}
 		v, exists := n[seg]
-		if len(rest) == 0 {
-			if overwrite || !exists {
-				n[seg] = value
-			}
-		} else if c, store := descend(v, exists, rest, value, overwrite); store {
-			n[seg] = c
+		if c, store := place(v, exists, rest, value, overwrite); store {
+			out[seg] = c
 		}
+		return out
 	case []any:
+		out := slices.Clone(n)
 		for i, v := range n {
 			if seg != wildcard {
 				if j, ok := index(seg, len(n)); !ok || j != i {
 					continue
 				}
 			}
-			if len(rest) == 0 {
-				if overwrite {
-					n[i] = value
-				}
-			} else if c, store := descend(v, true, rest, value, overwrite); store {
-				n[i] = c
+			if c, store := place(v, true, rest, value, overwrite); store {
+				out[i] = c
 			}
 		}
+		return out
 	}
+	return node
 }
 
-// descend applies rest below child and returns a replacement for child when
-// the slot must be updated.
-func descend(child any, exists bool, rest []string, value any, overwrite bool) (any, bool) {
+// place returns the new value for a slot holding child when rest is applied
+// below it, and reports whether the slot must be updated.
+func place(child any, exists bool, rest []string, value any, overwrite bool) (any, bool) {
+	if len(rest) == 0 {
+		return value, overwrite || !exists
+	}
 	switch child.(type) {
 	case map[string]any, []any:
-		assign(child, rest, value, overwrite)
-		return nil, false
+		return assign(child, rest, value, overwrite), true
 	}
 	if exists && (!overwrite || isContainer(child)) {
 		return nil, false
@@ -92,9 +96,7 @@ func descend(child any, exists bool, rest []string, value any, overwrite bool) (
 	if slices.Contains(rest, wildcard) {
 		return nil, false
 	}
-	m := map[string]any{}
-	assign(m, rest, value, overwrite)
-	return m, true
+	return assign(map[string]any{}, rest, value, overwrite), true
 }
 
 // isContainer reports whether v is a map or slice of a type writers do not
@@ -110,47 +112,54 @@ func isContainer(v any) bool {
 	return false
 }
 
-// Forget modifies target in place, deleting the map key at path, like
-// Laravel's data_forget. A "*" segment applies the rest of the path to every
+// Forget returns a copy of target with the map key at path deleted, like
+// Laravel's data_forget. Maps and slices along the path are copied; target
+// is never modified. A "*" segment applies the rest of the path to every
 // value of a map or element of a slice; a trailing "*" deletes nothing.
-// Slice elements cannot be removed in place, so a path ending at a slice
-// index does nothing. A nil target or an empty path does nothing.
-func Forget(target map[string]any, path string) {
+// Slice elements are not removed, so a path ending at a slice index changes
+// nothing. An empty path returns a shallow copy of target, and a nil target
+// returns nil.
+func Forget(target map[string]any, path string) map[string]any {
 	if target == nil || path == "" {
-		return
+		return maps.Clone(target)
 	}
-	forget(target, splitPath(path))
+	return forget(target, splitPath(path)).(map[string]any)
 }
 
-// forget deletes segs below node.
-func forget(node any, segs []string) {
+// forget returns node with segs deleted, copying the containers it changes.
+func forget(node any, segs []string) any {
 	seg, rest := segs[0], segs[1:]
-	if seg == wildcard {
-		if len(rest) == 0 {
-			return
-		}
-		switch n := node.(type) {
-		case map[string]any:
-			for _, v := range n {
-				forget(v, rest)
-			}
-		case []any:
-			for _, v := range n {
-				forget(v, rest)
-			}
-		}
-		return
-	}
 	switch n := node.(type) {
 	case map[string]any:
-		if len(rest) == 0 {
-			delete(n, seg)
-		} else if v, ok := n[seg]; ok {
-			forget(v, rest)
+		out := maps.Clone(n)
+		switch {
+		case seg == wildcard && len(rest) > 0:
+			for k, v := range n {
+				out[k] = forget(v, rest)
+			}
+		case seg == wildcard:
+		case len(rest) == 0:
+			delete(out, seg)
+		default:
+			if v, ok := n[seg]; ok {
+				out[seg] = forget(v, rest)
+			}
 		}
+		return out
 	case []any:
-		if i, ok := index(seg, len(n)); ok && len(rest) > 0 {
-			forget(n[i], rest)
+		if len(rest) == 0 {
+			return node
 		}
+		out := slices.Clone(n)
+		for i, v := range n {
+			if seg != wildcard {
+				if j, ok := index(seg, len(n)); !ok || j != i {
+					continue
+				}
+			}
+			out[i] = forget(v, rest)
+		}
+		return out
 	}
+	return node
 }

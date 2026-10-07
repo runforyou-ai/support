@@ -24,6 +24,19 @@ func Query(m map[string]any) string {
 
 // appendQuery appends the encoded pairs for v under key to parts.
 func appendQuery(parts []string, key string, v any) []string {
+	// Pointers without String or Error methods are dereferenced before containers are expanded.
+	for rv := reflect.ValueOf(v); rv.Kind() == reflect.Pointer; rv = rv.Elem() {
+		if rv.IsNil() {
+			return parts
+		}
+		if _, ok := v.(fmt.Stringer); ok {
+			break
+		}
+		if _, ok := v.(error); ok {
+			break
+		}
+		v = rv.Elem().Interface()
+	}
 	if _, isBytes := v.([]byte); !isBytes {
 		if keys, vals, ok := entries(v); ok {
 			for i, k := range keys {

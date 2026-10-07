@@ -74,15 +74,16 @@ func SortedKeys[M ~map[K]V, K cmp.Ordered, V any](m M) []K {
 	return slices.Sorted(maps.Keys(m))
 }
 
-// SortedEntries returns the entries of m ordered by ascending key.
+// SortedEntries returns the entries of m ordered by ascending key, with NaN
+// keys first as ordered by cmp.Compare.
 func SortedEntries[M ~map[K]V, K cmp.Ordered, V any](m M) []Entry[K, V] {
-	keys := SortedKeys(m)
-	if len(keys) == 0 {
+	if len(m) == 0 {
 		return nil
 	}
-	out := make([]Entry[K, V], len(keys))
-	for i, k := range keys {
-		out[i] = Entry[K, V]{Key: k, Value: m[k]}
+	out := make([]Entry[K, V], 0, len(m))
+	for k, v := range m {
+		out = append(out, Entry[K, V]{Key: k, Value: v})
 	}
+	slices.SortFunc(out, func(a, b Entry[K, V]) int { return cmp.Compare(a.Key, b.Key) })
 	return out
 }

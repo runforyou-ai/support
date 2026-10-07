@@ -55,7 +55,7 @@ func Undot(m map[string]any) map[string]any {
 		node := out
 		for _, seg := range segs[:len(segs)-1] {
 			child, ok := node[seg].(map[string]any)
-			if !ok {
+			if !ok || child == nil {
 				child = map[string]any{}
 			} else if !owned[reflect.ValueOf(child).Pointer()] {
 				child = maps.Clone(child)

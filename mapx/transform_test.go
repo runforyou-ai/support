@@ -2,6 +2,7 @@ package mapx
 
 import (
 	"maps"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
@@ -147,4 +148,10 @@ func TestSortedEntries(t *testing.T) {
 			}
 		})
 	}
+	t.Run("NaN key", func(t *testing.T) {
+		got := SortedEntries(map[float64]int{math.NaN(): 42, 1: 1})
+		if len(got) != 2 || !math.IsNaN(got[0].Key) || got[0].Value != 42 || got[1] != (Entry[float64, int]{1, 1}) {
+			t.Fatalf("SortedEntries() = %v; want [{NaN 42} {1 1}]", got)
+		}
+	})
 }

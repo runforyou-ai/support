@@ -57,7 +57,7 @@ Every exported function has a runnable example on [pkg.go.dev](https://pkg.go.de
 
 - Only fills gaps in the standard library; it does not wrap `strings`, `slices`, `maps` or `cmp`.
 - String helpers work on runes, so lengths, offsets and truncation are correct for multibyte text.
-- Functions do not panic on ordinary input and never mutate their arguments; `data.Set`, `data.Fill` and `data.Forget` are the documented exceptions that write in place.
+- Functions do not panic on ordinary input and never mutate their arguments; writers such as `data.Set` return a new value.
 - Framework concerns (paths, config, routing) are out of scope.
 
 ## License

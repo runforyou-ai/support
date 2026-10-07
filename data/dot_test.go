@@ -39,6 +39,7 @@ func TestUndot(t *testing.T) {
 		{"numeric segments", m{"list.0": "x", "list.1": "y"}, m{"list": m{"0": "x", "1": "y"}}},
 		{"prefix conflict", m{"a": 1, "a.b": 2}, m{"a": m{"b": 2}}},
 		{"merge into map value", m{"a": m{"x": 1}, "a.y": 2}, m{"a": m{"x": 1, "y": 2}}},
+		{"merge into nil map value", m{"a": map[string]any(nil), "a.b": 1}, m{"a": m{"b": 1}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

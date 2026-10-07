@@ -24,6 +24,9 @@ type number struct {
 	i    int64
 	u    uint64
 	f    float64
+	// wide marks an integer literal outside the int64 and uint64 ranges,
+	// held approximately in f.
+	wide bool
 }
 
 // parseNumber extracts the numeric value of v.
@@ -64,12 +67,15 @@ func parseString(s string) (number, error) {
 	if s == "" {
 		return number{}, nil
 	}
-	if i, err := strconv.ParseInt(s, 10, 64); err == nil {
+	i, intErr := strconv.ParseInt(s, 10, 64)
+	if intErr == nil {
 		return number{kind: kindInt, i: i}, nil
 	}
 	if u, err := strconv.ParseUint(s, 10, 64); err == nil {
 		return number{kind: kindUint, u: u}, nil
 	}
+	// An integer literal that fits neither int64 nor uint64 is only exact as a float.
+	wide := errors.Is(intErr, strconv.ErrRange)
 	// Hexadecimal literals and digit separators are not decimal input.
 	if strings.ContainsAny(s, "xX_") {
 		return number{}, fmt.Errorf("convert: %w", &strconv.NumError{Func: "ParseFloat", Num: s, Err: strconv.ErrSyntax})
@@ -81,7 +87,7 @@ func parseString(s string) (number, error) {
 	if err != nil {
 		return number{}, fmt.Errorf("convert: %w", err)
 	}
-	return number{kind: kindFloat, f: f}, nil
+	return number{kind: kindFloat, f: f, wide: wide}, nil
 }
 
 // ToInt64 converts v to an int64. It accepts every integer and float kind,
@@ -106,7 +112,7 @@ func ToInt64(v any) (int64, error) {
 		return int64(n.u), nil
 	case kindFloat:
 		f := math.Trunc(n.f)
-		if math.IsNaN(f) || f < math.MinInt64 || f >= math.MaxInt64 {
+		if n.wide || math.IsNaN(f) || f < math.MinInt64 || f >= math.MaxInt64 {
 			return 0, fmt.Errorf("%w: %v overflows int64", ErrOutOfRange, v)
 		}
 		return int64(f), nil
@@ -142,7 +148,7 @@ func ToUint64(v any) (uint64, error) {
 		return uint64(n.i), nil
 	case kindFloat:
 		f := math.Trunc(n.f)
-		if math.IsNaN(f) || f < 0 || f >= math.MaxUint64 {
+		if n.wide || math.IsNaN(f) || f < 0 || f >= math.MaxUint64 {
 			return 0, fmt.Errorf("%w: %v overflows uint64", ErrOutOfRange, v)
 		}
 		return uint64(f), nil

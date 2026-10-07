@@ -51,24 +51,58 @@ func TestSet(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			target := setFixture()
-			Set(target, tt.path, tt.value)
-			if got := target[tt.check]; !reflect.DeepEqual(got, tt.want) {
+			got := Set(target, tt.path, tt.value)
+			if !reflect.DeepEqual(target, setFixture()) {
+				t.Errorf("Set(%q) modified target: %#v", tt.path, target)
+			}
+			if got := got[tt.check]; !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("after Set(%q) %s = %#v; want %#v", tt.path, tt.check, got, tt.want)
 			}
 		})
 	}
 }
 
-func TestSetNoop(t *testing.T) {
-	Set(nil, "a", 1)
-	Fill(nil, "a", 1)
-	Forget(nil, "a")
+func TestSetEdges(t *testing.T) {
+	if got := Set(nil, "a.b", 1); !reflect.DeepEqual(got, m{"a": m{"b": 1}}) {
+		t.Errorf("Set(nil) = %#v", got)
+	}
+	if got := Fill(nil, "a", 1); !reflect.DeepEqual(got, m{"a": 1}) {
+		t.Errorf("Fill(nil) = %#v", got)
+	}
+	if got := Forget(nil, "a"); got != nil {
+		t.Errorf("Forget(nil) = %#v; want nil", got)
+	}
+	if got := Set(nil, "", 1); got != nil {
+		t.Errorf("Set(nil, \"\") = %#v; want nil", got)
+	}
 	target := setFixture()
-	Set(target, "", 1)
-	Fill(target, "", 1)
-	Forget(target, "")
-	if !reflect.DeepEqual(target, setFixture()) {
-		t.Errorf("empty path changed target: %v", target)
+	for name, got := range map[string]m{
+		"Set":    Set(target, "", 1),
+		"Fill":   Fill(target, "", 1),
+		"Forget": Forget(target, ""),
+	} {
+		if !reflect.DeepEqual(got, setFixture()) {
+			t.Errorf("%s with empty path = %#v; want a copy of target", name, got)
+		}
+	}
+	got := Set(target, "name", "Bob")
+	got["extra"] = 1
+	if _, ok := target["extra"]; ok {
+		t.Error("Set result shares its top-level map with target")
+	}
+
+	nested := m{"a": map[string]any(nil)}
+	if got := Set(nested, "a.b", 1); !reflect.DeepEqual(got, m{"a": m{"b": 1}}) {
+		t.Errorf("Set into nil nested map = %#v", got)
+	}
+	if got := Fill(nested, "a.b", 1); !reflect.DeepEqual(got, m{"a": m{"b": 1}}) {
+		t.Errorf("Fill into nil nested map = %#v", got)
+	}
+	if got := Set(m{"l": []any(nil)}, "l.*", 1); !reflect.DeepEqual(got, m{"l": []any(nil)}) {
+		t.Errorf("Set into nil slice = %#v", got)
+	}
+	if !reflect.DeepEqual(nested, m{"a": map[string]any(nil)}) {
+		t.Errorf("nested target modified: %#v", nested)
 	}
 }
 
@@ -96,8 +130,11 @@ func TestFill(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			target := setFixture()
-			Fill(target, tt.path, tt.value)
-			if got := target[tt.check]; !reflect.DeepEqual(got, tt.want) {
+			got := Fill(target, tt.path, tt.value)
+			if !reflect.DeepEqual(target, setFixture()) {
+				t.Errorf("Fill(%q) modified target: %#v", tt.path, target)
+			}
+			if got := got[tt.check]; !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("after Fill(%q) %s = %#v; want %#v", tt.path, tt.check, got, tt.want)
 			}
 		})
@@ -125,15 +162,16 @@ func TestForget(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			target := setFixture()
-			Forget(target, tt.path)
-			if got := target[tt.check]; !reflect.DeepEqual(got, tt.want) {
+			got := Forget(target, tt.path)
+			if !reflect.DeepEqual(target, setFixture()) {
+				t.Errorf("Forget(%q) modified target: %#v", tt.path, target)
+			}
+			if got := got[tt.check]; !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("after Forget(%q) %s = %#v; want %#v", tt.path, tt.check, got, tt.want)
 			}
 		})
 	}
-	target := setFixture()
-	Forget(target, "name")
-	if _, ok := target["name"]; ok {
+	if _, ok := Forget(setFixture(), "name")["name"]; ok {
 		t.Error("Forget did not delete key")
 	}
 }
