@@ -48,6 +48,11 @@ func lookup(node any, seg string) (any, bool) {
 	}
 	rv := reflect.ValueOf(node)
 	switch rv.Kind() {
+	case reflect.Pointer:
+		if rv.IsNil() {
+			return nil, false
+		}
+		return lookup(rv.Elem().Interface(), seg)
 	case reflect.Map:
 		kt := rv.Type().Key()
 		if kt.Kind() != reflect.String {
@@ -90,6 +95,11 @@ func entries(node any) ([]string, []any, bool) {
 	}
 	rv := reflect.ValueOf(node)
 	switch rv.Kind() {
+	case reflect.Pointer:
+		if rv.IsNil() {
+			return nil, nil, false
+		}
+		return entries(rv.Elem().Interface())
 	case reflect.Map:
 		if rv.Type().Key().Kind() != reflect.String {
 			return nil, nil, false

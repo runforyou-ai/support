@@ -9,11 +9,11 @@ import (
 // Trailing whitespace of the kept part is removed before end is appended. A
 // negative n is treated as zero.
 func Limit(s string, n int, end string) string {
+	n = max(n, 0)
 	runes := []rune(s)
 	if len(runes) <= n {
 		return s
 	}
-	n = max(n, 0)
 	return strings.TrimRightFunc(string(runes[:n]), unicode.IsSpace) + end
 }
 

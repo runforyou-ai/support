@@ -51,7 +51,8 @@ func WithRetryIf(when func(err error) bool) RetryOption {
 }
 
 // Retry calls fn up to times times until it returns nil, passing the attempt
-// number starting at 1. It returns nil on success, the last error once the
+// number starting at 1. fn always runs at least once, even when times is
+// zero or negative. It returns nil on success, the last error once the
 // attempts are exhausted or the retry condition rejects an error, or the
 // context error when ctx is done while waiting between attempts.
 func Retry(ctx context.Context, times int, fn func(attempt int) error, opts ...RetryOption) error {

@@ -42,11 +42,10 @@ func write(target map[string]any, path string, value any, overwrite bool) map[st
 	return assign(target, splitPath(path), value, overwrite).(map[string]any)
 }
 
-// assign returns a copy of the container node with value stored at segs.
+// assign returns a copy of node, a map[string]any or []any, with value stored at segs.
 func assign(node any, segs []string, value any, overwrite bool) any {
 	seg, rest := segs[0], segs[1:]
-	switch n := node.(type) {
-	case map[string]any:
+	if n, ok := node.(map[string]any); ok {
 		out := make(map[string]any, len(n)+1)
 		maps.Copy(out, n)
 		if seg == wildcard {
@@ -62,21 +61,20 @@ func assign(node any, segs []string, value any, overwrite bool) any {
 			out[seg] = c
 		}
 		return out
-	case []any:
-		out := slices.Clone(n)
-		for i, v := range n {
-			if seg != wildcard {
-				if j, ok := index(seg, len(n)); !ok || j != i {
-					continue
-				}
-			}
-			if c, store := place(v, true, rest, value, overwrite); store {
-				out[i] = c
+	}
+	n := node.([]any)
+	out := slices.Clone(n)
+	for i, v := range n {
+		if seg != wildcard {
+			if j, ok := index(seg, len(n)); !ok || j != i {
+				continue
 			}
 		}
-		return out
+		if c, store := place(v, true, rest, value, overwrite); store {
+			out[i] = c
+		}
 	}
-	return node
+	return out
 }
 
 // place returns the new value for a slot holding child when rest is applied

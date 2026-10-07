@@ -40,7 +40,7 @@ limit := support.DerefOr(req.Limit, 20)
 err := support.Retry(ctx, 3, send, support.WithExponentialBackoff(100*time.Millisecond, 2*time.Second))
 ```
 
-每个导出函数在 [pkg.go.dev](https://pkg.go.dev/github.com/runforyou-ai/support) 上都有可运行的示例。
+每个包级函数在 [pkg.go.dev](https://pkg.go.dev/github.com/runforyou-ai/support) 上都有可运行的示例。
 
 ## 设计原则
 

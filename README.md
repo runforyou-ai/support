@@ -51,7 +51,7 @@ limit := support.DerefOr(req.Limit, 20)
 err := support.Retry(ctx, 3, send, support.WithExponentialBackoff(100*time.Millisecond, 2*time.Second))
 ```
 
-Every exported function has a runnable example on [pkg.go.dev](https://pkg.go.dev/github.com/runforyou-ai/support).
+Every package-level function has a runnable example on [pkg.go.dev](https://pkg.go.dev/github.com/runforyou-ai/support).
 
 ## Design
 

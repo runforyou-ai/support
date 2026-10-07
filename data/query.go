@@ -67,19 +67,13 @@ func scalar(v any) (string, bool) {
 		}
 		return "0", true
 	}
-	rv := reflect.ValueOf(v)
-	if rv.Kind() == reflect.Pointer && rv.IsNil() {
-		return "", false
-	}
 	switch x := v.(type) {
 	case fmt.Stringer:
 		return x.String(), true
 	case error:
 		return x.Error(), true
 	}
-	switch rv.Kind() {
-	case reflect.Pointer:
-		return scalar(rv.Elem().Interface())
+	switch rv := reflect.ValueOf(v); rv.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		return strconv.FormatInt(rv.Int(), 10), true
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:

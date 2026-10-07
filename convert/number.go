@@ -133,8 +133,9 @@ func ToInt(v any) (int, error) {
 	return int(i), nil
 }
 
-// ToUint64 converts v to a uint64 following the rules of ToInt64. Negative
-// values return an error wrapping ErrOutOfRange.
+// ToUint64 converts v to a uint64 following the rules of ToInt64. Values that
+// are negative after truncation toward zero return an error wrapping
+// ErrOutOfRange, so -0.5 converts to 0.
 func ToUint64(v any) (uint64, error) {
 	n, err := parseNumber(v)
 	if err != nil {

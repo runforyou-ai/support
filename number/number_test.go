@@ -3,6 +3,7 @@ package number
 import (
 	"math"
 	"reflect"
+	"strconv"
 	"testing"
 )
 
@@ -30,7 +31,7 @@ func TestOrdinal(t *testing.T) {
 		{-1, "-1st"},
 		{-12, "-12th"},
 		{-22, "-22nd"},
-		{math.MinInt64, "-9223372036854775808th"},
+		{math.MinInt, strconv.Itoa(math.MinInt) + "th"},
 	}
 	for _, tt := range tests {
 		if got := Ordinal(tt.n); got != tt.want {

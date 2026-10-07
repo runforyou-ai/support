@@ -16,7 +16,8 @@ General-purpose helpers for Go, organized by domain in the spirit of Laravel's `
 - Functions do not panic on ordinary input (empty values, out-of-range offsets, nil maps); they return zero values or the input unchanged. Lookups that may miss return `(value, ok)`.
 - Inputs are never mutated; functions return new slices and maps.
 - Every exported identifier has an English doc comment starting with its name; every package has a `doc.go` with a package comment and a short usage example.
-- Every exported function has table-driven tests in `<file>_test.go` and at least one runnable `Example` with an `// Output:` block in `example_test.go`.
+- Every exported function has table-driven tests in `<file>_test.go`; every package-level function also has a runnable `Example` with an `// Output:` block in `example_test.go`.
+- Tests compile and pass on 32-bit platforms; values such as `math.MinInt64` go in `int64` fields, not `int`.
 - Tests use only the standard `testing` package.
 
 ## Commands

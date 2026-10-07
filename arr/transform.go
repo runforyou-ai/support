@@ -70,7 +70,9 @@ func Flatten[E any](s [][]E) []E {
 
 // CrossJoin returns the cartesian product of lists: every combination that
 // takes one element from each list, ordered with the last list varying
-// fastest. It returns nil when no lists are given or any list is empty.
+// fastest. It returns nil when no lists are given or any list is empty. The
+// result holds the product of the list lengths, so it is meant for small
+// inputs.
 func CrossJoin[E any](lists ...[]E) [][]E {
 	if len(lists) == 0 {
 		return nil
