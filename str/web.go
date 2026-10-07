@@ -9,35 +9,35 @@ import (
 
 // IsHTTPURL reports whether s is an absolute http or https URL, such as a page
 // address opened in a browser. The scheme is matched case-insensitively, the
-// host must be non-empty and user information is rejected; a path, query and
+// host name must be non-empty and user information is rejected; a path, query and
 // fragment are allowed. Surrounding whitespace is not trimmed.
 func IsHTTPURL(s string) bool {
 	u, err := url.Parse(s)
-	return err == nil && u.IsAbs() && u.Host != "" && u.User == nil &&
+	return err == nil && u.IsAbs() && u.Hostname() != "" && u.User == nil &&
 		(strings.EqualFold(u.Scheme, "http") || strings.EqualFold(u.Scheme, "https"))
 }
 
 // IsHTTPOrigin reports whether s is a web origin: a lowercase "http://" or
-// "https://" scheme followed by a non-empty host and an optional port, with
+// "https://" scheme followed by a non-empty host name and an optional port, with
 // nothing after them. It rejects a trailing slash, any path, query, fragment
 // or user information, and any space; that is, the text after "://" contains
 // none of '/', '?', '#', '@' or ' '.
 func IsHTTPOrigin(s string) bool {
 	u, err := url.Parse(s)
-	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" {
 		return false
 	}
 	return !strings.ContainsAny(strings.TrimPrefix(s, u.Scheme+"://"), "/?#@ ")
 }
 
 // IsHTTPBaseURL reports whether s is an absolute http or https URL suitable as
-// an API base address. The host must be non-empty, user information and a
+// an API base address. The host name must be non-empty, user information and a
 // non-empty query are rejected, and a path is allowed. s is parsed with
 // url.ParseRequestURI, so '#' does not start a fragment: it is rejected in the
 // host and kept as part of the path. Surrounding whitespace is not trimmed.
 func IsHTTPBaseURL(s string) bool {
 	u, err := url.ParseRequestURI(s)
-	return err == nil && u.IsAbs() && u.Host != "" && u.User == nil &&
+	return err == nil && u.IsAbs() && u.Hostname() != "" && u.User == nil &&
 		(u.Scheme == "http" || u.Scheme == "https") && u.RawQuery == "" && u.Fragment == ""
 }
 

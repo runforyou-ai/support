@@ -11,6 +11,7 @@ func TestIsHTTPURL(t *testing.T) {
 		{"http://example.com/docs?page=2#intro", true},
 		{"HTTPS://example.com", true},
 		{"https://example.com:8080/", true},
+		{"http://:8080", false},
 		{"https://[::1]:80", true},
 		{"https://user@example.com", false},
 		{"https://user:pass@example.com", false},
@@ -38,6 +39,7 @@ func TestIsHTTPOrigin(t *testing.T) {
 		{"https://example.com", true},
 		{"http://localhost:8080", true},
 		{"https://[::1]:443", true},
+		{"https://:443", false},
 		{"HTTPS://example.com", false},
 		{"https://example.com/", false},
 		{"https://example.com/app", false},
@@ -65,6 +67,7 @@ func TestIsHTTPBaseURL(t *testing.T) {
 	}{
 		{"https://api.example.com", true},
 		{"http://localhost:8080/v1/", true},
+		{"http://:8080/v1", false},
 		{"HTTPS://api.example.com", true},
 		{"https://api.example.com/v1?", true},
 		{"https://api.example.com/#", true},

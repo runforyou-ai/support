@@ -48,6 +48,10 @@ func ExtractTarGz(archivePath, root string) error {
 	for {
 		header, err := reader.Next()
 		if errors.Is(err, io.EOF) {
+			// Reading the gzip stream to its end verifies its checksum and length.
+			if _, err := io.Copy(io.Discard, decompressed); err != nil {
+				return err
+			}
 			break
 		}
 		if err != nil {

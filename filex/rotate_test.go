@@ -244,3 +244,28 @@ func TestRotatingFileConcurrent(t *testing.T) {
 		t.Errorf("lines across files = %d, want 400", total)
 	}
 }
+
+func TestRotatingFileKeepsBackupOnShiftError(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "app.log")
+	if err := os.WriteFile(path+".1", []byte("old"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// A non-empty directory in place of the oldest backup cannot be removed.
+	if err := os.MkdirAll(filepath.Join(path+".2", "keep"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	f, err := OpenRotating(path, 4, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = f.Close() }()
+	if _, err := f.Write([]byte("abc")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.Write([]byte("defg")); err == nil {
+		t.Fatal("Write succeeded, want rotation error")
+	}
+	if data, err := os.ReadFile(path + ".1"); err != nil || string(data) != "old" {
+		t.Fatalf("backup .1 = %q, %v; want old", data, err)
+	}
+}

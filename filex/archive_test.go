@@ -383,10 +383,26 @@ func TestExtractTarGzInvalidArchive(t *testing.T) {
 	if err := os.WriteFile(truncated, buf.Bytes(), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	valid, err := os.ReadFile(writeTarGz(t, file("a.txt", "hello")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	badCRC := append([]byte(nil), valid...)
+	badCRC[len(badCRC)-8] ^= 0xff
+	corrupt := filepath.Join(tmp, "crc.tar.gz")
+	if err := os.WriteFile(corrupt, badCRC, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	shortTrailer := filepath.Join(tmp, "trailer.tar.gz")
+	if err := os.WriteFile(shortTrailer, valid[:len(valid)-4], 0o600); err != nil {
+		t.Fatal(err)
+	}
 	tests := []struct {
 		name, path string
 	}{
 		{"missing", filepath.Join(tmp, "missing.tar.gz")},
+		{"gzip checksum mismatch", corrupt},
+		{"gzip trailer cut", shortTrailer},
 		{"truncated file body", truncated},
 		{"not gzip", notGzip},
 		{"not tar", notTar},

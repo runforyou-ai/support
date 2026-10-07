@@ -1,7 +1,9 @@
 package filex
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sync"
@@ -97,9 +99,14 @@ func (f *RotatingFile) rotate() error {
 	}
 	f.file = nil
 	if f.backups > 0 {
-		_ = os.Remove(fmt.Sprintf("%s.%d", f.path, f.backups))
+		if err := os.Remove(fmt.Sprintf("%s.%d", f.path, f.backups)); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("filex: rotate file: %w", err)
+		}
 		for index := f.backups - 1; index >= 1; index-- {
-			_ = os.Rename(fmt.Sprintf("%s.%d", f.path, index), fmt.Sprintf("%s.%d", f.path, index+1))
+			err := os.Rename(fmt.Sprintf("%s.%d", f.path, index), fmt.Sprintf("%s.%d", f.path, index+1))
+			if err != nil && !errors.Is(err, fs.ErrNotExist) {
+				return fmt.Errorf("filex: rotate file: %w", err)
+			}
 		}
 		if err := os.Rename(f.path, f.path+".1"); err != nil {
 			return fmt.Errorf("filex: rotate file: %w", err)
