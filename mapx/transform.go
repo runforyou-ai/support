@@ -23,6 +23,14 @@ func Add[M ~map[K]V, K comparable, V any](m M, key K, value V) M {
 	return out
 }
 
+// OrEmpty returns m itself when it is not nil, and a new empty map otherwise.
+func OrEmpty[M ~map[K]V, K comparable, V any](m M) M {
+	if m == nil {
+		return M{}
+	}
+	return m
+}
+
 // Merge returns a new map holding the entries of every map in ms. When a key
 // appears in several maps, the value from the later map wins.
 func Merge[M ~map[K]V, K comparable, V any](ms ...M) M {

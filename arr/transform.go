@@ -29,6 +29,34 @@ func Map[E, R any](s []E, fn func(E) R) []R {
 	return out
 }
 
+// MapErr returns a slice holding fn applied to each element of s, in order.
+// It stops at the first error and returns nil and that error. It returns nil
+// and a nil error for an empty s.
+func MapErr[E, R any](s []E, fn func(E) (R, error)) ([]R, error) {
+	if len(s) == 0 {
+		return nil, nil
+	}
+	out := make([]R, len(s))
+	for i, v := range s {
+		r, err := fn(v)
+		if err != nil {
+			return nil, err
+		}
+		out[i] = r
+	}
+	return out, nil
+}
+
+// OrEmpty returns s itself when it is not nil, and a non-nil empty slice
+// otherwise. It is useful where nil and empty encode differently, such as
+// JSON null and [].
+func OrEmpty[S ~[]E, E any](s S) S {
+	if s == nil {
+		return S{}
+	}
+	return s
+}
+
 // FilterMap applies fn to each element of s and returns the results for which
 // fn reports true, in order.
 func FilterMap[E, R any](s []E, fn func(E) (R, bool)) []R {

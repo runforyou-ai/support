@@ -32,6 +32,25 @@ func TestKeyBy(t *testing.T) {
 	}
 }
 
+func TestAssociate(t *testing.T) {
+	tests := []struct {
+		name string
+		s    []int
+		want map[string]int
+	}{
+		{"nil", nil, map[string]int{}},
+		{"later wins", []int{1, 2, 3, 4}, map[string]int{"odd": 30, "even": 40}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := Associate(tt.s, func(n int) (string, int) { return parity(n), n * 10 })
+			if got == nil || !maps.Equal(got, tt.want) {
+				t.Fatalf("Associate() = %v; want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestGroupBy(t *testing.T) {
 	tests := []struct {
 		name string

@@ -29,6 +29,31 @@ func TestAdd(t *testing.T) {
 	}
 }
 
+func TestOrEmpty(t *testing.T) {
+	tests := []struct {
+		name string
+		m    scores
+		want scores
+	}{
+		{"nil", nil, scores{}},
+		{"empty", scores{}, scores{}},
+		{"values", scores{"a": 1}, scores{"a": 1}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			orig := maps.Clone(tt.m)
+			got := OrEmpty(tt.m)
+			checkResult(t, "OrEmpty", got, tt.want, tt.m, orig)
+			if tt.m != nil {
+				got["probe"] = 1
+				if _, ok := tt.m["probe"]; !ok {
+					t.Fatal("OrEmpty() did not return its non-nil input")
+				}
+			}
+		})
+	}
+}
+
 func TestMerge(t *testing.T) {
 	tests := []struct {
 		name string

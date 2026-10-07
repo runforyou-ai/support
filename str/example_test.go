@@ -292,6 +292,58 @@ func ExampleIsUUID() {
 	// false
 }
 
+func ExampleNormalizeUUID() {
+	fmt.Println(str.NormalizeUUID(" A0A2A2D2-0B87-4A18-83F2-2529882BE2DE "))
+	fmt.Println(str.NormalizeUUID("{a0a2a2d2-0b87-4a18-83f2-2529882be2de}"))
+	// Output:
+	// a0a2a2d2-0b87-4a18-83f2-2529882be2de true
+	//  false
+}
+
+func ExampleIsHTTPURL() {
+	fmt.Println(str.IsHTTPURL("https://example.com/docs?page=2#intro"))
+	fmt.Println(str.IsHTTPURL("https://user@example.com"))
+	fmt.Println(str.IsHTTPURL("ftp://example.com"))
+	// Output:
+	// true
+	// false
+	// false
+}
+
+func ExampleIsHTTPOrigin() {
+	fmt.Println(str.IsHTTPOrigin("https://example.com:8443"))
+	fmt.Println(str.IsHTTPOrigin("https://example.com/"))
+	// Output:
+	// true
+	// false
+}
+
+func ExampleIsHTTPBaseURL() {
+	fmt.Println(str.IsHTTPBaseURL("https://api.example.com/v1"))
+	fmt.Println(str.IsHTTPBaseURL("https://api.example.com/v1?key=secret"))
+	// Output:
+	// true
+	// false
+}
+
+func ExampleIsEmail() {
+	fmt.Println(str.IsEmail("taylor@example.com"))
+	fmt.Println(str.IsEmail("Taylor <taylor@example.com>"))
+	// Output:
+	// true
+	// false
+}
+
+func ExampleMaskEmail() {
+	fmt.Println(str.MaskEmail("taylor@example.com"))
+	fmt.Println(str.MaskEmail("张三丰@example.com"))
+	fmt.Println(str.MaskEmail("not-an-email"))
+	// Output:
+	// t***@example.com
+	// 张***@example.com
+	// not-an-email
+}
+
 func ExampleIsULID() {
 	fmt.Println(str.IsULID("01ARZ3NDEKTSV4RRFFQ69G5FAV"))
 	fmt.Println(str.IsULID("laravel"))
@@ -312,18 +364,6 @@ func ExampleRandom() {
 	token := str.Random(40)
 	fmt.Println(len(token))
 	// Output: 40
-}
-
-func ExampleUUID() {
-	id := str.UUID()
-	fmt.Println(str.IsUUID(id), id[14:15])
-	// Output: true 4
-}
-
-func ExampleUUIDv7() {
-	id := str.UUIDv7()
-	fmt.Println(str.IsUUID(id), id[14:15])
-	// Output: true 7
 }
 
 func ExampleULID() {

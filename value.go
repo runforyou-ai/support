@@ -34,21 +34,24 @@ func Filled(v any) bool {
 	return !Blank(v)
 }
 
-// Default returns the first value that is not the zero value of T, or the
-// zero value when every value is zero.
-func Default[T comparable](values ...T) T {
+// NilIfZero returns nil when v is the zero value of T, and a pointer to a
+// copy of v otherwise.
+func NilIfZero[T comparable](v T) *T {
 	var zero T
-	for _, v := range values {
-		if v != zero {
-			return v
-		}
+	if v == zero {
+		return nil
 	}
-	return zero
+	return &v
 }
 
-// Ptr returns a pointer to a copy of v.
-func Ptr[T any](v T) *T {
-	return &v
+// MapPtr returns nil when p is nil, and a pointer to fn(*p) otherwise. fn is
+// not called for a nil pointer.
+func MapPtr[T, R any](p *T, fn func(T) R) *R {
+	if p == nil {
+		return nil
+	}
+	r := fn(*p)
+	return &r
 }
 
 // Deref returns the value p points to, or the zero value of T when p is nil.

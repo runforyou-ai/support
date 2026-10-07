@@ -2,7 +2,6 @@ package str
 
 import (
 	"crypto/rand"
-	"encoding/hex"
 	"time"
 )
 
@@ -38,27 +37,6 @@ func Random(n int) string {
 	return string(out)
 }
 
-// UUID returns a random version 4 UUID in canonical lowercase form.
-func UUID() string {
-	var b [16]byte
-	randomBytes(b[:])
-	b[6] = b[6]&0x0f | 0x40
-	b[8] = b[8]&0x3f | 0x80
-	return formatUUID(b)
-}
-
-// UUIDv7 returns a version 7 UUID in canonical lowercase form, combining the
-// current Unix time in milliseconds with random bits so that values sort by
-// creation time at millisecond precision.
-func UUIDv7() string {
-	var b [16]byte
-	randomBytes(b[6:])
-	putMillis(b[:6], time.Now().UnixMilli())
-	b[6] = b[6]&0x0f | 0x70
-	b[8] = b[8]&0x3f | 0x80
-	return formatUUID(b)
-}
-
 // ULID returns a ULID combining the current Unix time in milliseconds with 80
 // random bits, encoded as 26 uppercase Crockford base32 characters. ULIDs
 // generated within the same millisecond are not guaranteed to be ordered.
@@ -92,19 +70,4 @@ func putMillis(b []byte, ms int64) {
 		b[i] = byte(ms)
 		ms >>= 8
 	}
-}
-
-// formatUUID formats b in the canonical 8-4-4-4-12 form.
-func formatUUID(b [16]byte) string {
-	var out [36]byte
-	hex.Encode(out[0:8], b[0:4])
-	out[8] = '-'
-	hex.Encode(out[9:13], b[4:6])
-	out[13] = '-'
-	hex.Encode(out[14:18], b[6:8])
-	out[18] = '-'
-	hex.Encode(out[19:23], b[8:10])
-	out[23] = '-'
-	hex.Encode(out[24:], b[10:])
-	return string(out[:])
 }

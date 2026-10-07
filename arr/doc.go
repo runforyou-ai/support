@@ -4,7 +4,8 @@
 //
 // Functions never modify their input; they return new slices and maps. Nil
 // and empty slices are valid input everywhere, and functions that build a
-// slice return nil when the result is empty.
+// slice return nil when the result is empty; OrEmpty turns a nil slice into an
+// empty one where that difference matters.
 //
 // Example:
 //
