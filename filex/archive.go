@@ -15,7 +15,8 @@ import (
 // EntryPath returns the path at which the archive entry name is extracted
 // under root. name uses forward slashes as in tar and zip headers; a leading
 // slash is treated as relative to root. It returns an error when the entry
-// would land outside root, as with "../evil" (zip slip).
+// would land outside root, as with "../evil" (zip slip), or when name carries
+// a volume name, such as "C:evil" on Windows.
 func EntryPath(root, name string) (string, error) {
 	path := filepath.Join(root, filepath.FromSlash(name))
 	if filepath.VolumeName(filepath.FromSlash(name)) != "" || !Within(root, path) {

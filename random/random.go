@@ -41,8 +41,8 @@ func SHA256Hex(data []byte) string {
 
 // Token returns a random token of nBytes bytes encoded as unpadded URL-safe
 // base64, together with HashToken(token). Hand the token to the client and
-// store only the hash; check a presented token with VerifyToken. Token(32) yields a 256-bit token. Both results are ""
-// when nBytes is zero or negative.
+// store only the hash; check a presented token with VerifyToken. Token(32)
+// yields a 256-bit token. Both results are "" when nBytes is zero or negative.
 func Token(nBytes int) (token, hash string) {
 	if nBytes <= 0 {
 		return "", ""

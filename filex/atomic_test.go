@@ -181,3 +181,26 @@ func writeOrFail(t *testing.T, path, content string, mode os.FileMode) {
 		t.Fatal(err)
 	}
 }
+
+func TestWriteAtomicDirSyncError(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("needs Unix directory permissions enforced")
+	}
+	dir := t.TempDir()
+	path := filepath.Join(dir, "f")
+	writeOrFail(t, path, "old", 0o644)
+	// Write and search permission without read permission lets the rename succeed but not the directory open.
+	if err := os.Chmod(dir, 0o300); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
+	if err := WriteAtomic(path, []byte("new"), 0o644); err == nil {
+		t.Fatal("WriteAtomic succeeded without directory read permission, want error")
+	}
+	if err := os.Chmod(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := os.ReadFile(path); string(got) != "new" {
+		t.Errorf("content = %q, want new", got)
+	}
+}
