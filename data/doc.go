@@ -6,7 +6,7 @@
 // segments index slices, and the "*" segment matches every key or element.
 // Readers and Query also traverse other maps with string keys, slices,
 // arrays and non-nil pointers to them; writers traverse only map[string]any
-// and []any.
+// and []any. Values must not contain reference cycles.
 //
 // No function modifies its input: Set, Fill and Forget return a new map in
 // which the maps and slices along the path are copied.

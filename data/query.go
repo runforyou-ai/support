@@ -13,7 +13,8 @@ import (
 // such as a[b]=c and list[0]=x, with the brackets percent-encoded
 // (a%5Bb%5D=c). Keys are sorted, spaces are encoded as "+", booleans are
 // written as 1 and 0, pointers are dereferenced, and nil values and empty
-// containers are omitted.
+// containers are omitted. Byte slices, fmt.Stringer and error values are
+// encoded as single values even when they are slices or maps.
 func Query(m map[string]any) string {
 	var parts []string
 	for _, k := range sortedKeys(m) {
