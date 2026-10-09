@@ -18,6 +18,7 @@ func TestLimit(t *testing.T) {
 		{"", 0, "...", ""},
 		{"", -1, "...", ""},
 		{"你好世界", 2, "…", "你好…"},
+		{"👨\u200d👩x", 1, "…", "👨…"},
 	}
 	for _, tt := range tests {
 		if got := Limit(tt.s, tt.n, tt.end); got != tt.want {
@@ -63,6 +64,8 @@ func TestExcerpt(t *testing.T) {
 		{"This is my name", "This", 3, "...", "This is...", true},
 		{"This is my name", "MY", 100, "...", "This is my name", true},
 		{"This is my name", "this", 0, "(...)", "This(...)", true},
+		{"This is my name", "", 4, "...", "This...", true},
+		{"", "", 4, "...", "", true},
 		{"This is my name", "is", -1, "...", "...is...", true},
 		{"This is my name", "nope", 3, "...", "", false},
 		{"  padded  text  ", "padded", 100, "...", "padded  text", true},

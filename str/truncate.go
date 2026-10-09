@@ -7,7 +7,9 @@ import (
 
 // Limit truncates s to at most n runes and appends end when s was truncated.
 // Trailing whitespace of the kept part is removed before end is appended. A
-// negative n is treated as zero.
+// negative n is treated as zero. n counts runes, not grapheme clusters, so a
+// cut may separate a combining mark or split an emoji sequence joined by
+// U+200D.
 func Limit(s string, n int, end string) string {
 	n = max(n, 0)
 	runes := []rune(s)
@@ -40,8 +42,9 @@ func Words(s string, n int, end string) string {
 // Excerpt extracts the first occurrence of phrase in text together with up to
 // radius runes on each side, matching phrase case-insensitively. Each side is
 // trimmed of surrounding whitespace, and omission is added to a side that was
-// cut short. It returns false when phrase is not found. A negative radius is
-// treated as zero.
+// cut short. It returns false when phrase is not found. An empty phrase
+// matches at the start of text, so the result is the first radius runes of
+// text. A negative radius is treated as zero.
 func Excerpt(text, phrase string, radius int, omission string) (string, bool) {
 	radius = max(radius, 0)
 	runes := []rune(text)

@@ -35,6 +35,12 @@ func TestHeadTailBuffer(t *testing.T) {
 		{"utf8 whole rune both sides", 3, 3, []string{"中文字"}, "中<...>字", true},
 		{"invalid bytes replaced", 4, 4, []string{"a\xffb"}, "a�b", false},
 		{"invalid bytes replaced when truncated", 2, 2, []string{"\xffbcd\xff"}, "�b<...>d�", true},
+		{"exact fit then one more byte", 2, 2, []string{"abcd", "e"}, "ab<...>de", true},
+		{"tail rolls over many small writes", 1, 2, []string{"a", "b", "c", "d", "e"}, "a<...>de", true},
+		{"head filled by later write", 3, 1, []string{"a", "bcd", "ef"}, "abc<...>f", true},
+		{"four-byte rune split in head", 2, 0, []string{"a😀"}, "a<...>", true},
+		{"four-byte rune split in tail", 0, 3, []string{"😀b"}, "<...>b", true},
+		{"four-byte rune kept in tail", 0, 4, []string{"a😀"}, "<...>😀", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -52,6 +58,17 @@ func TestHeadTailBuffer(t *testing.T) {
 				t.Errorf("Truncated() = %v, want %v", got, tt.wantTruncated)
 			}
 		})
+	}
+}
+
+func TestHeadTailBufferEmptyMarker(t *testing.T) {
+	b := NewHeadTailBuffer(1, 1, "")
+	_, _ = b.Write([]byte("abc"))
+	if got := b.String(); got != "ac" || !b.Truncated() {
+		t.Errorf("String() = %q, Truncated() = %v; want \"ac\", true", got, b.Truncated())
+	}
+	if got := b.String(); got != "ac" {
+		t.Errorf("second String() = %q, want unchanged", got)
 	}
 }
 

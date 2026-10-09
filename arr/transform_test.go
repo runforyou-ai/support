@@ -152,6 +152,18 @@ func TestCrossJoin(t *testing.T) {
 	}
 }
 
+func TestCrossJoinOverflow(t *testing.T) {
+	// 2^16 to the fifth power overflows int on 32-bit and 64-bit platforms.
+	big := make([]int, 1<<16)
+	defer func() {
+		if r := recover(); r != "arr: CrossJoin result size overflows int" {
+			t.Fatalf("recover() = %v; want overflow panic", r)
+		}
+	}()
+	CrossJoin(big, big, big, big, big)
+	t.Fatal("CrossJoin did not panic")
+}
+
 func TestPad(t *testing.T) {
 	tests := []struct {
 		name string
