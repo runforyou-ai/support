@@ -41,6 +41,10 @@ func TestIsHTTPURL(t *testing.T) {
 		{"http://\u212a.com/", false},
 		{"http://例子.com/", false},
 		{"http://1.2.3/", false},
+		{"http://0X7F000001/", false},
+		{"http://[0:0:0:0:0:0:0:1]/", true},
+		{"https://api.example.com/v1\\", false},
+		{"https://example.com/a\\b", false},
 		{"", false},
 	}
 	for _, tt := range tests {
@@ -105,6 +109,16 @@ func TestIsHTTPOrigin(t *testing.T) {
 		{"https://[2001:DB8::1]", false},
 		{"https://[fe80::1%25en0]", false},
 		{"https://[192.0.2.1]", false},
+		{"https://0x7f000001", false},
+		{"https://0x7f.0x0.0x0.0x1", false},
+		{"https://0x", false},
+		{"https://a.0xg", true},
+		{"https://[0:0:0:0:0:0:0:1]", false},
+		{"https://[2001:0db8::1]", false},
+		{"https://[2001:db8::0:1]", false},
+		{"https://[2001:db8::1]", true},
+		{"https://[::ffff:c000:201]", false},
+		{"https://[::ffff:192.0.2.1]", false},
 		{"", false},
 	}
 	for _, tt := range tests {
@@ -135,6 +149,7 @@ func TestIsHTTPBaseURL(t *testing.T) {
 		{"https://api.example.com:/v1", false},
 		{"https://api.example.com:0/v1", false},
 		{"https://api.example.com;x/v1", false},
+		{"https://api.example.com/v1\\", false},
 		{"", false},
 	}
 	for _, tt := range tests {
@@ -170,6 +185,7 @@ func TestIsEmail(t *testing.T) {
 		{"taylor@example.com\r\nBcc: x@y.com", false},
 		{"taylor@b@example.com", false},
 		{strings.Repeat("a", 64) + "@example.com", true},
+		{"a@" + strings.Repeat("b", 63) + "." + strings.Repeat("c", 63) + "." + strings.Repeat("d", 63) + "." + strings.Repeat("e", 56) + ".com", true},
 		{strings.Repeat("a", 65) + "@example.com", false},
 		{"a@" + strings.Repeat("b", 63) + "." + strings.Repeat("c", 63) + "." + strings.Repeat("d", 63) + "." + strings.Repeat("e", 57) + ".com", false},
 		{" taylor@example.com", false},

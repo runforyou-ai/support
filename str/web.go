@@ -10,11 +10,16 @@ import (
 
 // IsHTTPURL reports whether s is an absolute http or https URL, such as a page
 // address opened in a browser. Unlike IsHTTPOrigin, the scheme and host are
-// matched case-insensitively. The authority after "://" must be a host with an
-// optional port following the rules of IsHTTPOrigin, so user information,
+// matched case-insensitively and an IPv6 address need not be in canonical
+// form. The authority after "://" must otherwise be a host with an optional
+// port following the rules of IsHTTPOrigin, so user information,
 // percent-encoded hosts and empty or out-of-range ports are rejected; a path,
-// query and fragment are allowed. Surrounding whitespace is not trimmed.
+// query and fragment are allowed. A backslash, which browsers read as '/', is
+// rejected anywhere in s. Surrounding whitespace is not trimmed.
 func IsHTTPURL(s string) bool {
+	if strings.Contains(s, "\\") {
+		return false
+	}
 	u, err := url.Parse(s)
 	if err != nil || (!strings.EqualFold(u.Scheme, "http") && !strings.EqualFold(u.Scheme, "https")) {
 		return false
@@ -28,7 +33,7 @@ func IsHTTPURL(s string) bool {
 		authority = rest[:i]
 	}
 	authority, ok = lowerASCII(authority)
-	return ok && isHostPort(authority)
+	return ok && isHostPort(authority, false)
 }
 
 // IsHTTPOrigin reports whether s is a web origin in serialized form: a
@@ -36,8 +41,10 @@ func IsHTTPURL(s string) bool {
 // optional port, with nothing after them. The host is an ASCII DNS name of
 // letters, digits and hyphens whose dot-separated labels are 1 to 63
 // characters long and do not start or end with a hyphen, without a trailing
-// dot; a dotted-decimal IPv4 address, required when the last label is
-// numeric; or an IPv6 address in brackets without a zone. Internationalized
+// dot; a dotted-decimal IPv4 address, required when the last label is a
+// decimal or "0x" hexadecimal number as browsers then parse the host as IPv4;
+// or an IPv6 address in brackets in canonical compressed form, as returned by
+// netip.Addr.String, without a zone and not IPv4-mapped. Internationalized
 // names must be given in their "xn--" form. The port, when present, is a
 // decimal number from 1 to 65535 without leading zeros; default ports are
 // allowed. A trailing slash, path, query, fragment, user information and any
@@ -47,7 +54,7 @@ func IsHTTPOrigin(s string) bool {
 	if !ok {
 		rest, ok = strings.CutPrefix(s, "http://")
 	}
-	return ok && isHostPort(rest)
+	return ok && isHostPort(rest, true)
 }
 
 // IsHTTPBaseURL reports whether s is an absolute http or https URL suitable as
@@ -69,8 +76,9 @@ func lowerASCII(s string) (string, bool) {
 }
 
 // isHostPort reports whether s is a lowercase host with an optional port, as
-// described for IsHTTPOrigin.
-func isHostPort(s string) bool {
+// described for IsHTTPOrigin; canonical requires the IPv6 form IsHTTPOrigin
+// accepts.
+func isHostPort(s string, canonical bool) bool {
 	host, port := s, ""
 	if strings.HasPrefix(s, "[") {
 		end := strings.IndexByte(s, ']')
@@ -79,7 +87,8 @@ func isHostPort(s string) bool {
 		}
 		host, port = s[1:end], s[end+1:]
 		addr, err := netip.ParseAddr(host)
-		if err != nil || !addr.Is6() || addr.Zone() != "" || strings.ToLower(host) != host {
+		if err != nil || !addr.Is6() || addr.Zone() != "" || strings.ToLower(host) != host ||
+			(canonical && (addr.Is4In6() || addr.String() != host)) {
 			return false
 		}
 	} else {
@@ -102,7 +111,7 @@ func isHostPort(s string) bool {
 }
 
 // isHostName reports whether s is a lowercase ASCII DNS name, or a
-// dotted-decimal IPv4 address when its last label is numeric.
+// dotted-decimal IPv4 address when its last label is a number.
 func isHostName(s string) bool {
 	if s == "" || len(s) > 253 {
 		return false
@@ -114,8 +123,11 @@ func isHostName(s string) bool {
 			return false
 		}
 	}
-	// A numeric last label makes the whole host an IPv4 address, as in browsers.
-	if strings.Trim(labels[len(labels)-1], "0123456789") == "" {
+	// A decimal or hexadecimal last label makes the host an IPv4 address, as in
+	// browsers.
+	last := labels[len(labels)-1]
+	hex, isHex := strings.CutPrefix(last, "0x")
+	if strings.Trim(last, "0123456789") == "" || (isHex && strings.Trim(hex, "0123456789abcdef") == "") {
 		addr, err := netip.ParseAddr(s)
 		return err == nil && addr.Is4()
 	}
