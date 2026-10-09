@@ -42,6 +42,8 @@ func TestIsHTTPURL(t *testing.T) {
 		{"http://例子.com/", false},
 		{"http://1.2.3/", false},
 		{"http://0X7F000001/", false},
+		{"http://my_minio:9000/bucket", true},
+		{"http://-a_b.com/", false},
 		{"http://[0:0:0:0:0:0:0:1]/", true},
 		{"https://api.example.com/v1\\", false},
 		{"https://example.com/a\\b", false},
@@ -150,6 +152,7 @@ func TestIsHTTPBaseURL(t *testing.T) {
 		{"https://api.example.com:0/v1", false},
 		{"https://api.example.com;x/v1", false},
 		{"https://api.example.com/v1\\", false},
+		{"http://ollama_server:11434/v1", true},
 		{"", false},
 	}
 	for _, tt := range tests {

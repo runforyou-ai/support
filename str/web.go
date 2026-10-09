@@ -10,9 +10,10 @@ import (
 
 // IsHTTPURL reports whether s is an absolute http or https URL, such as a page
 // address opened in a browser. Unlike IsHTTPOrigin, the scheme and host are
-// matched case-insensitively and an IPv6 address need not be in canonical
-// form. The authority after "://" must otherwise be a host with an optional
-// port following the rules of IsHTTPOrigin, so user information,
+// matched case-insensitively, host name labels may also contain '_', as
+// Docker and other internal service names do, and an IPv6 address need not be
+// in canonical form. The authority after "://" must otherwise be a host with
+// an optional port following the rules of IsHTTPOrigin, so user information,
 // percent-encoded hosts and empty or out-of-range ports are rejected; a path,
 // query and fragment are allowed. A backslash, which browsers read as '/', is
 // rejected anywhere in s. Surrounding whitespace is not trimmed.
@@ -76,9 +77,9 @@ func lowerASCII(s string) (string, bool) {
 }
 
 // isHostPort reports whether s is a lowercase host with an optional port, as
-// described for IsHTTPOrigin; canonical requires the IPv6 form IsHTTPOrigin
-// accepts.
-func isHostPort(s string, canonical bool) bool {
+// described for IsHTTPOrigin. With origin false it also accepts '_' in host
+// name labels and IPv6 addresses in any form, as IsHTTPURL does.
+func isHostPort(s string, origin bool) bool {
 	host, port := s, ""
 	if strings.HasPrefix(s, "[") {
 		end := strings.IndexByte(s, ']')
@@ -88,14 +89,14 @@ func isHostPort(s string, canonical bool) bool {
 		host, port = s[1:end], s[end+1:]
 		addr, err := netip.ParseAddr(host)
 		if err != nil || !addr.Is6() || addr.Zone() != "" || strings.ToLower(host) != host ||
-			(canonical && (addr.Is4In6() || addr.String() != host)) {
+			(origin && (addr.Is4In6() || addr.String() != host)) {
 			return false
 		}
 	} else {
 		if i := strings.LastIndexByte(s, ':'); i >= 0 {
 			host, port = s[:i], s[i:]
 		}
-		if !isHostName(host) {
+		if !isHostName(host, !origin) {
 			return false
 		}
 	}
@@ -111,15 +112,20 @@ func isHostPort(s string, canonical bool) bool {
 }
 
 // isHostName reports whether s is a lowercase ASCII DNS name, or a
-// dotted-decimal IPv4 address when its last label is a number.
-func isHostName(s string) bool {
+// dotted-decimal IPv4 address when its last label is a number. underscore
+// also allows '_' in labels.
+func isHostName(s string, underscore bool) bool {
+	chars := "abcdefghijklmnopqrstuvwxyz0123456789-"
+	if underscore {
+		chars += "_"
+	}
 	if s == "" || len(s) > 253 {
 		return false
 	}
 	labels := strings.Split(s, ".")
 	for _, label := range labels {
 		if len(label) == 0 || len(label) > 63 || label[0] == '-' || label[len(label)-1] == '-' ||
-			strings.Trim(label, "abcdefghijklmnopqrstuvwxyz0123456789-") != "" {
+			strings.Trim(label, chars) != "" {
 			return false
 		}
 	}
@@ -163,7 +169,7 @@ func IsEmail(s string) bool {
 		return false
 	}
 	last := domain[strings.LastIndexByte(domain, '.')+1:]
-	return strings.Trim(last, "0123456789") != "" && isHostName(domain)
+	return strings.Trim(last, "0123456789") != "" && isHostName(domain, false)
 }
 
 // MaskEmail hides the local part of an email address except for its first
