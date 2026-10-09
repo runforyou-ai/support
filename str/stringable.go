@@ -131,8 +131,10 @@ func (s Stringable) Finish(suffix string) Stringable {
 	return Of(Finish(s.value, suffix))
 }
 
-// Replace replaces every occurrence of search with replace. It returns the
-// value unchanged when search is empty.
+// Replace replaces every occurrence of search with replace, like
+// strings.ReplaceAll, which the package does not duplicate as a function.
+// Unlike strings.ReplaceAll, an empty search returns the value unchanged
+// instead of inserting replace around every rune.
 func (s Stringable) Replace(search, replace string) Stringable {
 	if search == "" {
 		return s
@@ -226,7 +228,9 @@ func (s Stringable) Upper() Stringable {
 }
 
 // Trim removes leading and trailing whitespace, or, when cutset is given,
-// every leading and trailing rune contained in any of the cutset strings.
+// every leading and trailing rune contained in any of the cutset strings. The
+// cutset strings are joined into one set of runes, as in strings.Trim, so
+// Trim("ab") removes any run of 'a' and 'b' rather than the substring "ab".
 func (s Stringable) Trim(cutset ...string) Stringable {
 	if len(cutset) == 0 {
 		return Of(strings.TrimSpace(s.value))
@@ -235,7 +239,8 @@ func (s Stringable) Trim(cutset ...string) Stringable {
 }
 
 // LTrim removes leading whitespace, or, when cutset is given, every leading
-// rune contained in any of the cutset strings.
+// rune contained in any of the cutset strings, treated as one set of runes as
+// in Trim.
 func (s Stringable) LTrim(cutset ...string) Stringable {
 	if len(cutset) == 0 {
 		return Of(strings.TrimLeftFunc(s.value, unicode.IsSpace))
@@ -244,7 +249,8 @@ func (s Stringable) LTrim(cutset ...string) Stringable {
 }
 
 // RTrim removes trailing whitespace, or, when cutset is given, every trailing
-// rune contained in any of the cutset strings.
+// rune contained in any of the cutset strings, treated as one set of runes as
+// in Trim.
 func (s Stringable) RTrim(cutset ...string) Stringable {
 	if len(cutset) == 0 {
 		return Of(strings.TrimRightFunc(s.value, unicode.IsSpace))

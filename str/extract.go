@@ -73,7 +73,8 @@ func BetweenFirst(s, from, to string) string {
 
 // CharAt returns the character at the given rune index of s. A negative index
 // counts from the end, so -1 is the last character. It returns false when the
-// index is out of range.
+// index is out of range. A character is a single rune, so a letter with a
+// combining mark or an emoji sequence joined by U+200D spans several indexes.
 func CharAt(s string, index int) (string, bool) {
 	runes := []rune(s)
 	if index < 0 {
@@ -90,7 +91,8 @@ func CharAt(s string, index int) (string, bool) {
 // end of s and is clamped to the beginning. A negative length omits that many
 // runes from the end of s, and a length of zero returns an empty string; pass
 // Length(s) to take everything up to the end. Out-of-range values return an
-// empty string.
+// empty string. Offsets count runes, not grapheme clusters, so a cut may
+// separate a combining mark or split an emoji sequence joined by U+200D.
 func Substr(s string, start, length int) string {
 	runes := []rune(s)
 	n := len(runes)

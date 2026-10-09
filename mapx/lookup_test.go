@@ -2,7 +2,7 @@ package mapx
 
 import "testing"
 
-func TestGet(t *testing.T) {
+func TestGetOr(t *testing.T) {
 	tests := []struct {
 		name     string
 		m        scores

@@ -61,6 +61,7 @@ func TestStringableTransforms(t *testing.T) {
 		{"Upper", Of("abc").Upper(), "ABC"},
 		{"Trim", Of(" \tabc\n ").Trim(), "abc"},
 		{"Trim cutset", Of("--abc-/").Trim("-", "/"), "abc"},
+		{"Trim cutset is a rune set", Of("abcba").Trim("ab"), "c"},
 		{"LTrim", Of("  abc  ").LTrim(), "abc  "},
 		{"LTrim cutset", Of("--abc--").LTrim("-"), "abc--"},
 		{"RTrim", Of("  abc  ").RTrim(), "  abc"},

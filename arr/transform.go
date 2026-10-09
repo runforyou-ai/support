@@ -1,5 +1,7 @@
 package arr
 
+import "math"
+
 // Filter returns the elements of s for which pred returns true, in order.
 func Filter[S ~[]E, E any](s S, pred func(E) bool) S {
 	var out S
@@ -17,7 +19,8 @@ func Reject[S ~[]E, E any](s S, pred func(E) bool) S {
 	return Filter(s, func(v E) bool { return !pred(v) })
 }
 
-// Map returns a slice holding fn applied to each element of s, in order.
+// Map returns a slice holding fn applied to each element of s, in order. It
+// returns nil for an empty s; use OrEmpty where an empty result must be non-nil.
 func Map[E, R any](s []E, fn func(E) R) []R {
 	if len(s) == 0 {
 		return nil
@@ -100,7 +103,7 @@ func Flatten[E any](s [][]E) []E {
 // takes one element from each list, ordered with the last list varying
 // fastest. It returns nil when no lists are given or any list is empty. The
 // result holds the product of the list lengths, so it is meant for small
-// inputs.
+// inputs; it panics when that product overflows int.
 func CrossJoin[E any](lists ...[]E) [][]E {
 	if len(lists) == 0 {
 		return nil
@@ -109,6 +112,11 @@ func CrossJoin[E any](lists ...[]E) [][]E {
 	for _, l := range lists {
 		if len(l) == 0 {
 			return nil
+		}
+	}
+	for _, l := range lists {
+		if total > math.MaxInt/len(l) {
+			panic("arr: CrossJoin result size overflows int")
 		}
 		total *= len(l)
 	}

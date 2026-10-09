@@ -73,6 +73,7 @@ func TestCharAt(t *testing.T) {
 		{"hello", -6, "", false},
 		{"", 0, "", false},
 		{"你好世界", 2, "世", true},
+		{"e\u0301x", 1, "\u0301", true},
 	}
 	for _, tt := range tests {
 		got, ok := CharAt(tt.s, tt.index)
@@ -100,6 +101,8 @@ func TestSubstr(t *testing.T) {
 		{"hello world", 5, -7, ""},
 		{"hello", 1, Length("hello"), "ello"},
 		{"你好世界", 1, 2, "好世"},
+		{"e\u0301x", 0, 1, "e"},
+		{"👨\u200d👩x", 0, 2, "👨\u200d"},
 		{"", 0, 1, ""},
 	}
 	for _, tt := range tests {
