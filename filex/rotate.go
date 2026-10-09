@@ -14,8 +14,9 @@ import (
 // <path>.1, existing backups shift to <path>.2, <path>.3 and so on, backups
 // beyond the configured count are removed, and a new empty file is started.
 // It is safe for concurrent use. Create it with OpenRotating. When rotation
-// fails, Write returns the error and the file stays closed, so later writes
-// return os.ErrClosed.
+// fails, Write returns the error, the current file is reopened and keeps
+// receiving writes, and the next write past the size limit retries the
+// rotation; a write that finds no open file first tries to reopen it.
 type RotatingFile struct {
 	path    string
 	maxSize int64
@@ -23,6 +24,7 @@ type RotatingFile struct {
 	mu      sync.Mutex
 	file    *os.File
 	size    int64
+	closed  bool
 }
 
 // OpenRotating opens path for appending, creating it with mode 0644 and its
@@ -44,12 +46,18 @@ func OpenRotating(path string, maxSize int64, backups int) (*RotatingFile, error
 
 // Write appends data to the current file and rotates the file when it now
 // exceeds the size limit. It returns os.ErrClosed after Close. A rotation
-// failure is reported together with the number of bytes already written.
+// failure is reported together with the number of bytes already written, and
+// the data stays in the current file.
 func (f *RotatingFile) Write(data []byte) (int, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if f.file == nil {
+	if f.closed {
 		return 0, os.ErrClosed
+	}
+	if f.file == nil {
+		if err := f.open(); err != nil {
+			return 0, err
+		}
 	}
 	written, err := f.file.Write(data)
 	f.size += int64(written)
@@ -69,6 +77,7 @@ func (f *RotatingFile) Write(data []byte) (int, error) {
 func (f *RotatingFile) Close() error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.closed = true
 	if f.file == nil {
 		return nil
 	}
@@ -93,28 +102,39 @@ func (f *RotatingFile) open() error {
 }
 
 // rotate closes the current file, shifts the backups, removes the one beyond
-// the retention count and starts a new current file.
+// the retention count and starts a new current file. When any step fails it
+// reopens the current file, so writing continues and a later write retries.
 func (f *RotatingFile) rotate() error {
-	if err := f.file.Close(); err != nil {
-		f.file = nil
-		return fmt.Errorf("filex: close rotating file: %w", err)
-	}
+	err := f.file.Close()
 	f.file = nil
-	if f.backups > 0 {
-		if err := os.Remove(fmt.Sprintf("%s.%d", f.path, f.backups)); err != nil && !errors.Is(err, fs.ErrNotExist) {
+	if err != nil {
+		err = fmt.Errorf("filex: close rotating file: %w", err)
+	} else {
+		err = f.shift()
+	}
+	return errors.Join(err, f.open())
+}
+
+// shift moves the closed current file to the first backup, or removes it when
+// no backups are kept.
+func (f *RotatingFile) shift() error {
+	if f.backups == 0 {
+		if err := os.Remove(f.path); err != nil {
 			return fmt.Errorf("filex: rotate file: %w", err)
 		}
-		for index := f.backups - 1; index >= 1; index-- {
-			err := os.Rename(fmt.Sprintf("%s.%d", f.path, index), fmt.Sprintf("%s.%d", f.path, index+1))
-			if err != nil && !errors.Is(err, fs.ErrNotExist) {
-				return fmt.Errorf("filex: rotate file: %w", err)
-			}
-		}
-		if err := os.Rename(f.path, f.path+".1"); err != nil {
-			return fmt.Errorf("filex: rotate file: %w", err)
-		}
-	} else if err := os.Remove(f.path); err != nil {
+		return nil
+	}
+	if err := os.Remove(fmt.Sprintf("%s.%d", f.path, f.backups)); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("filex: rotate file: %w", err)
 	}
-	return f.open()
+	for index := f.backups - 1; index >= 1; index-- {
+		err := os.Rename(fmt.Sprintf("%s.%d", f.path, index), fmt.Sprintf("%s.%d", f.path, index+1))
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("filex: rotate file: %w", err)
+		}
+	}
+	if err := os.Rename(f.path, f.path+".1"); err != nil {
+		return fmt.Errorf("filex: rotate file: %w", err)
+	}
+	return nil
 }

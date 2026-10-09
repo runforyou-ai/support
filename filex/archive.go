@@ -13,13 +13,17 @@ import (
 )
 
 // EntryPath returns the path at which the archive entry name is extracted
-// under root. name uses forward slashes as in tar and zip headers; a leading
-// slash is treated as relative to root. It returns an error when the entry
-// would land outside root, as with "../evil" (zip slip), or when name carries
-// a volume name, such as "C:evil" on Windows.
+// under root. name uses forward slashes as in tar and zip headers; leading
+// slashes are treated as relative to root, and an empty name is root itself.
+// It returns an error when the entry would land outside root, as with
+// "../evil" (zip slip), or when it is not a local path in the sense of
+// filepath.IsLocal: on Windows that rejects a volume name such as "C:evil",
+// any other ':' such as the alternate data stream in "a:b", and reserved
+// device names such as "NUL" or "con.txt".
 func EntryPath(root, name string) (string, error) {
-	path := filepath.Join(root, filepath.FromSlash(name))
-	if filepath.VolumeName(filepath.FromSlash(name)) != "" || !Within(root, path) {
+	relative := strings.TrimLeft(filepath.FromSlash(name), string(filepath.Separator))
+	path := filepath.Join(root, relative)
+	if (relative != "" && !filepath.IsLocal(relative)) || !Within(root, path) {
 		return "", fmt.Errorf("filex: archive entry %q escapes target directory", name)
 	}
 	return path, nil
@@ -32,9 +36,13 @@ func EntryPath(root, name string) (string, error) {
 // when an entry would be written through a symbolic link extracted earlier,
 // when a symbolic link target is absolute or lexically outside root, or when
 // any extracted link, possibly through a chain of links, resolves outside
-// root. Entries extracted before an error are left in place. The total size
-// and number of entries are not limited, so callers handling untrusted
-// archives should bound the archive size beforehand.
+// root. Regular files are written with their header permissions plus owner
+// read and write. Links that resolve outside root are removed before the
+// error is returned; other entries extracted before an error are left in
+// place, so callers should extract into a new directory and remove it when
+// extraction fails. The total size and number of entries are not limited, so
+// callers handling untrusted archives should bound the archive size
+// beforehand.
 func ExtractTarGz(archivePath, root string) error {
 	file, err := os.Open(archivePath)
 	if err != nil {
@@ -68,7 +76,7 @@ func ExtractTarGz(archivePath, root string) error {
 		case tar.TypeDir:
 			err = os.MkdirAll(path, 0o755)
 		case tar.TypeReg:
-			err = writeFile(path, reader, header.FileInfo().Mode().Perm())
+			err = writeFile(path, reader, header.FileInfo().Mode().Perm()|0o600)
 		case tar.TypeSymlink:
 			// A symbolic link must have a relative target inside root.
 			target := filepath.FromSlash(header.Linkname)
@@ -98,6 +106,7 @@ func ExtractTarGz(archivePath, root string) error {
 		return err
 	}
 	realRoot, ok := resolveLinks(absRoot)
+	var escaped []string
 	for _, link := range links {
 		absLink, err := filepath.Abs(link)
 		if err != nil {
@@ -105,10 +114,21 @@ func ExtractTarGz(archivePath, root string) error {
 		}
 		resolved, linkOK := resolveLinks(absLink)
 		if !ok || !linkOK || !Within(realRoot, resolved) {
-			return fmt.Errorf("filex: archive symlink %q resolves outside target directory", link)
+			escaped = append(escaped, link)
 		}
 	}
-	return nil
+	if len(escaped) == 0 {
+		return nil
+	}
+	// All links are judged before any is removed, since removing one changes
+	// where the links through it resolve.
+	errs := []error{fmt.Errorf("filex: archive symlink %q resolves outside target directory", escaped[0])}
+	for _, link := range escaped {
+		if err := os.Remove(link); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
 }
 
 // ExtractZip extracts the zip archive at archivePath into root, creating

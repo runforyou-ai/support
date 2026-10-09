@@ -194,8 +194,20 @@ func TestRotatingFileRotateError(t *testing.T) {
 	if n, err := f.Write([]byte("ab")); n != 2 || err == nil {
 		t.Errorf("Write = %d, %v; want 2, rotate error", n, err)
 	}
-	if _, err := f.Write([]byte("c")); !errors.Is(err, os.ErrClosed) {
-		t.Errorf("Write after failed rotation = %v, want os.ErrClosed", err)
+	if n, err := f.Write([]byte("c")); n != 1 || err == nil || errors.Is(err, os.ErrClosed) {
+		t.Errorf("Write after failed rotation = %d, %v; want 1, rotate error", n, err)
+	}
+	if data, err := os.ReadFile(path); err != nil || string(data) != "abc" {
+		t.Fatalf("current file = %q, %v; want abc", data, err)
+	}
+	if err := os.RemoveAll(path + ".1"); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := f.Write([]byte("d")); n != 1 || err != nil {
+		t.Fatalf("Write after obstacle removed = %d, %v; want 1, nil", n, err)
+	}
+	if got := readFiles(t, path, 1); fmt.Sprint(got) != fmt.Sprint(map[string]string{"": "", ".1": "abcd"}) {
+		t.Errorf("files = %v", got)
 	}
 }
 
@@ -204,7 +216,8 @@ func TestRotatingFileRemoveError(t *testing.T) {
 		t.Skip("needs Unix directory permissions enforced")
 	}
 	dir := t.TempDir()
-	f, err := OpenRotating(filepath.Join(dir, "app.log"), 1, 0)
+	path := filepath.Join(dir, "app.log")
+	f, err := OpenRotating(path, 1, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -215,6 +228,61 @@ func TestRotatingFileRemoveError(t *testing.T) {
 	t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
 	if n, err := f.Write([]byte("ab")); n != 2 || err == nil {
 		t.Errorf("Write = %d, %v; want 2, rotate error", n, err)
+	}
+	if n, err := f.Write([]byte("c")); n != 1 || err == nil {
+		t.Errorf("second Write = %d, %v; want 1, rotate error", n, err)
+	}
+	if err := os.Chmod(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := f.Write([]byte("d")); n != 1 || err != nil {
+		t.Fatalf("Write after permissions restored = %d, %v; want 1, nil", n, err)
+	}
+	if data, err := os.ReadFile(path); err != nil || len(data) != 0 {
+		t.Errorf("current file = %q, %v; want empty", data, err)
+	}
+}
+
+func TestRotatingFileReopensMissingFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "app.log")
+	f, err := OpenRotating(path, 100, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = f.Close() }()
+	// Simulate a rotation that moved the file away and could not reopen it.
+	_ = f.file.Close()
+	f.file = nil
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := f.Write([]byte("x")); n != 1 || err != nil {
+		t.Fatalf("Write = %d, %v; want 1, nil", n, err)
+	}
+	if data, err := os.ReadFile(path); err != nil || string(data) != "x" {
+		t.Errorf("current file = %q, %v; want x", data, err)
+	}
+}
+
+func TestRotatingFileReopenError(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "app.log")
+	f, err := OpenRotating(path, 100, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = f.Close() }()
+	_ = f.file.Close()
+	f.file = nil
+	// A directory in place of the current file cannot be opened for writing.
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(path, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := f.Write([]byte("x")); n != 0 || err == nil || errors.Is(err, os.ErrClosed) {
+		t.Errorf("Write = %d, %v; want 0, open error", n, err)
 	}
 }
 
