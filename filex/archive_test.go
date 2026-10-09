@@ -148,6 +148,22 @@ func TestEntryPath(t *testing.T) {
 		{root, "../root2/evil", "", true},
 		{"rel", "x", filepath.Join("rel", "x"), false},
 		{"rel", "../x", "", true},
+		{root, "//a/b", filepath.Join(root, "a", "b"), false},
+	}
+	if runtime.GOOS == "windows" {
+		tests = append(tests, []struct {
+			root, name string
+			want       string
+			wantErr    bool
+		}{
+			{root, "C:evil", "", true},
+			{root, "C:/evil", "", true},
+			{root, "a:b", "", true},
+			{root, "NUL", "", true},
+			{root, "dir/COM1", "", true},
+			{root, "//./NUL", "", true},
+			{root, `a\..\..\evil`, "", true},
+		}...)
 	}
 	for _, tt := range tests {
 		got, err := EntryPath(tt.root, tt.name)
@@ -165,6 +181,7 @@ func TestExtractTarGz(t *testing.T) {
 		wantErr    string
 		wantFiles  map[string]string
 		wantAbsent []string
+		wantLinks  []string
 	}{
 		{
 			name:      "files and directories",
@@ -242,22 +259,35 @@ func TestExtractTarGz(t *testing.T) {
 			wantErr:  "passes through a symlink",
 		},
 		{
-			name:     "chained symlink escaping",
-			entries:  []entry{dir("d/"), symlink("d/up", ".."), symlink("esc", "d/up/..")},
-			symlinks: true,
-			wantErr:  "resolves outside",
+			name:       "chained symlink escaping",
+			entries:    []entry{dir("d/"), symlink("d/up", ".."), symlink("esc", "d/up/..")},
+			symlinks:   true,
+			wantErr:    "resolves outside",
+			wantLinks:  []string{"d/up"},
+			wantAbsent: []string{"esc"},
 		},
 		{
-			name:     "dangling chained symlink escaping",
-			entries:  []entry{symlink("b", "."), symlink("a", "b/../outside")},
-			symlinks: true,
-			wantErr:  "resolves outside",
+			name:       "dangling chained symlink escaping",
+			entries:    []entry{symlink("b", "."), symlink("a", "b/../outside")},
+			symlinks:   true,
+			wantErr:    "resolves outside",
+			wantLinks:  []string{"b"},
+			wantAbsent: []string{"a"},
 		},
 		{
-			name:     "symlink loop",
-			entries:  []entry{symlink("x", "y"), symlink("y", "x")},
-			symlinks: true,
-			wantErr:  "resolves outside",
+			name:       "symlink to parent through dot link",
+			entries:    []entry{symlink("b", "."), symlink("a", "b/..")},
+			symlinks:   true,
+			wantErr:    "resolves outside",
+			wantLinks:  []string{"b"},
+			wantAbsent: []string{"a"},
+		},
+		{
+			name:       "symlink loop",
+			entries:    []entry{symlink("x", "y"), symlink("y", "x")},
+			symlinks:   true,
+			wantErr:    "resolves outside",
+			wantAbsent: []string{"x", "y"},
 		},
 		{
 			name:     "symlink over existing file",
@@ -299,26 +329,59 @@ func TestExtractTarGz(t *testing.T) {
 			}
 			checkFiles(t, root, tt.wantFiles)
 			checkAbsent(t, root, tt.wantAbsent)
+			for _, name := range tt.wantLinks {
+				if info, err := os.Lstat(filepath.Join(root, filepath.FromSlash(name))); err != nil || info.Mode()&os.ModeSymlink == 0 {
+					t.Errorf("%s is not a symlink: %v", name, err)
+				}
+			}
 		})
 	}
 }
 
-func TestExtractTarGzModes(t *testing.T) {
+func TestExtractTarGzCleansEscapedLinksOnError(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("Unix permission bits")
+		t.Skip("symbolic links need privileges on Windows")
 	}
-	archive := writeTarGz(t, entry{name: "run.sh", body: "#!/bin/sh", mode: 0o755}, entry{name: "ro.txt", body: "r", mode: 0o444})
-	root := t.TempDir()
-	if err := ExtractTarGz(archive, root); err != nil {
+	escaping := []entry{symlink("b", "."), symlink("a", "b/..")}
+	rejected := writeTarGz(t, append(escaping, file("../evil.txt", "x"))...)
+	valid, err := os.ReadFile(writeTarGz(t, escaping...))
+	if err != nil {
 		t.Fatal(err)
 	}
-	for name, want := range map[string]os.FileMode{"run.sh": 0o755, "ro.txt": 0o444} {
-		info, err := os.Stat(filepath.Join(root, name))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if got := info.Mode().Perm() &^ 0o022; got != want&^0o022 {
-			t.Errorf("%s mode = %v, want %v", name, got, want)
+	valid[len(valid)-8] ^= 0xff
+	badCRC := filepath.Join(t.TempDir(), "crc.tar.gz")
+	if err := os.WriteFile(badCRC, valid, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name, archive, wantErr string
+	}{
+		{"rejected later entry", rejected, "escapes"},
+		{"gzip checksum mismatch", badCRC, "checksum"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := filepath.Join(t.TempDir(), "out")
+			err := ExtractTarGz(tt.archive, root)
+			if err == nil || !strings.Contains(err.Error(), tt.wantErr) || !strings.Contains(err.Error(), "resolves outside") {
+				t.Fatalf("ExtractTarGz error = %v, want %q and resolves outside", err, tt.wantErr)
+			}
+			checkAbsent(t, root, []string{"a"})
+			if info, err := os.Lstat(filepath.Join(root, "b")); err != nil || info.Mode()&os.ModeSymlink == 0 {
+				t.Errorf("b is not a symlink: %v", err)
+			}
+		})
+	}
+}
+
+func TestExtractTarGzSymlinkTargetNotLocal(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("reserved names and streams are Windows path elements")
+	}
+	for _, target := range []string{"NUL", "d/COM1", "d/f.txt:stream"} {
+		err := ExtractTarGz(writeTarGz(t, symlink("l", target)), filepath.Join(t.TempDir(), "out"))
+		if err == nil || !strings.Contains(err.Error(), "invalid target") {
+			t.Errorf("ExtractTarGz with target %q error = %v, want invalid target", target, err)
 		}
 	}
 }
