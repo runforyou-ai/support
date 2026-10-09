@@ -14,9 +14,11 @@ import (
 // <path>.1, existing backups shift to <path>.2, <path>.3 and so on, backups
 // beyond the configured count are removed, and a new empty file is started.
 // It is safe for concurrent use. Create it with OpenRotating. When rotation
-// fails, Write returns the error, the current file is reopened and keeps
-// receiving writes, and the next write past the size limit retries the
-// rotation; a write that finds no open file first tries to reopen it.
+// fails, Write returns the error and the current file is reopened, or created
+// again when it had already been moved or removed, so later writes keep
+// appending; the next write past the size limit retries the rotation, and a
+// write that finds no open file first tries to reopen it. A retry never
+// removes a backup that an earlier, partly completed rotation has moved.
 type RotatingFile struct {
 	path    string
 	maxSize int64
@@ -46,8 +48,7 @@ func OpenRotating(path string, maxSize int64, backups int) (*RotatingFile, error
 
 // Write appends data to the current file and rotates the file when it now
 // exceeds the size limit. It returns os.ErrClosed after Close. A rotation
-// failure is reported together with the number of bytes already written, and
-// the data stays in the current file.
+// failure is reported together with the number of bytes already written.
 func (f *RotatingFile) Write(data []byte) (int, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -116,7 +117,9 @@ func (f *RotatingFile) rotate() error {
 }
 
 // shift moves the closed current file to the first backup, or removes it when
-// no backups are kept.
+// no backups are kept. Backups move up only as far as the first missing one,
+// and the oldest is removed only when none is missing, so retrying after a
+// partial shift never removes another backup.
 func (f *RotatingFile) shift() error {
 	if f.backups == 0 {
 		if err := os.Remove(f.path); err != nil {
@@ -124,16 +127,29 @@ func (f *RotatingFile) shift() error {
 		}
 		return nil
 	}
-	if err := os.Remove(fmt.Sprintf("%s.%d", f.path, f.backups)); err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("filex: rotate file: %w", err)
-	}
-	for index := f.backups - 1; index >= 1; index-- {
-		err := os.Rename(fmt.Sprintf("%s.%d", f.path, index), fmt.Sprintf("%s.%d", f.path, index+1))
-		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+	backup := func(index int) string { return fmt.Sprintf("%s.%d", f.path, index) }
+	gap := f.backups
+	for index := 1; index < f.backups; index++ {
+		_, err := os.Lstat(backup(index))
+		if errors.Is(err, fs.ErrNotExist) {
+			gap = index
+			break
+		}
+		if err != nil {
 			return fmt.Errorf("filex: rotate file: %w", err)
 		}
 	}
-	if err := os.Rename(f.path, f.path+".1"); err != nil {
+	if gap == f.backups {
+		if err := os.Remove(backup(gap)); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("filex: rotate file: %w", err)
+		}
+	}
+	for index := gap - 1; index >= 1; index-- {
+		if err := os.Rename(backup(index), backup(index+1)); err != nil {
+			return fmt.Errorf("filex: rotate file: %w", err)
+		}
+	}
+	if err := os.Rename(f.path, backup(1)); err != nil {
 		return fmt.Errorf("filex: rotate file: %w", err)
 	}
 	return nil

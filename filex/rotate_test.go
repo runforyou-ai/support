@@ -243,6 +243,28 @@ func TestRotatingFileRemoveError(t *testing.T) {
 	}
 }
 
+func TestRotatingFileShiftStopsAtMissingBackup(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "app.log")
+	// A missing .2, as left by a partly completed rotation, is filled first.
+	for name, body := range map[string]string{".1": "one", ".3": "three"} {
+		if err := os.WriteFile(path+name, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	f, err := OpenRotating(path, 1, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = f.Close() }()
+	if _, err := f.Write([]byte("ab")); err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{"": "", ".1": "ab", ".2": "one", ".3": "three"}
+	if got := readFiles(t, path, 3); fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Errorf("files = %v, want %v", got, want)
+	}
+}
+
 func TestRotatingFileReopensMissingFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "app.log")
 	f, err := OpenRotating(path, 100, 1)
