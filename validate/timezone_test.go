@@ -1,9 +1,13 @@
 package validate
 
 import (
+	"archive/zip"
+	"bytes"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 	_ "time/tzdata"
 )
@@ -42,45 +46,78 @@ func TestTimezone(t *testing.T) {
 // utcTZif is a minimal TZif file describing a single zone at UTC.
 var utcTZif = append(append([]byte("TZif"), make([]byte, 16+4*4)...), 0, 0, 0, 1, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 'U', 'T', 'C', 0)
 
-func TestTimezoneZoneinfo(t *testing.T) {
-	if os.Getenv("TIMEZONE_HELPER") == "" {
-		// time and Timezone read $ZONEINFO once, so the check runs in a new
-		// process that sees the prepared directory from its first lookup.
-		dir := t.TempDir()
-		files := map[string][]byte{
-			"asia/shanghai": []byte("not a zone"),
-			"Test/Zone":     utcTZif,
-		}
-		for name, data := range files {
-			path := filepath.Join(dir, filepath.FromSlash(name))
-			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-				t.Fatal(err)
-			}
-			if err := os.WriteFile(path, data, 0o644); err != nil {
-				t.Fatal(err)
-			}
-		}
-		cmd := exec.Command(os.Args[0], "-test.run=^TestTimezoneZoneinfo$")
-		cmd.Env = append(os.Environ(), "TIMEZONE_HELPER=1", "ZONEINFO="+dir)
-		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("helper process: %v\n%s", err, out)
-		}
-		return
-	}
-	tests := []struct {
-		name string
-		want bool
-	}{
+// zoneinfoCases lists, for each kind of $ZONEINFO source, the names checked in
+// a process that uses it.
+var zoneinfoCases = map[string][]struct {
+	name string
+	want bool
+}{
+	"dir": {
 		// An invalid file whose name differs in case is skipped, as by time.LoadLocation.
 		{"Asia/Shanghai", true},
 		{"asia/shanghai", false},
 		{"Test/Zone", true},
 		{"test/zone", false},
 		{"Test/zone", false},
+		// UTC is built in and never read, while the stored "utc" file matches itself.
+		{"UTC", true},
+		{"utc", true},
+	},
+	"zip": {
+		{"Test/Zone", true},
+		{"test/zone", false},
+		{"Asia/Shanghai", true},
+		// The zip entry is the source time.LoadLocation reads, and it matches exactly.
+		{"asia/shanghai", true},
+		{"UTC", true},
+	},
+}
+
+func TestTimezoneZoneinfo(t *testing.T) {
+	if kind := os.Getenv("TIMEZONE_HELPER"); kind != "" {
+		for _, tt := range zoneinfoCases[kind] {
+			if got := Timezone(tt.name); got != tt.want {
+				t.Errorf("%s: Timezone(%q) = %v, want %v", kind, tt.name, got, tt.want)
+			}
+		}
+		return
 	}
-	for _, tt := range tests {
-		if got := Timezone(tt.name); got != tt.want {
-			t.Errorf("Timezone(%q) = %v, want %v", tt.name, got, tt.want)
+	// time and Timezone read $ZONEINFO once, so each source is checked in a new
+	// process that sees it from its first lookup.
+	dir := t.TempDir()
+	for name, data := range map[string][]byte{"asia/shanghai": []byte("not a zone"), "Test/Zone": utcTZif, "utc": utcTZif} {
+		path := filepath.Join(dir, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, data, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	for _, name := range []string{"Test/Zone", "asia/shanghai"} {
+		w, err := zw.CreateHeader(&zip.FileHeader{Name: name, Method: zip.Store})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := w.Write(utcTZif); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	archive := filepath.Join(t.TempDir(), "zoneinfo.zip")
+	if err := os.WriteFile(archive, buf.Bytes(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	env := slices.DeleteFunc(os.Environ(), func(v string) bool { return strings.HasPrefix(v, "ZONEINFO=") })
+	for kind, source := range map[string]string{"dir": dir, "zip": archive} {
+		cmd := exec.Command(os.Args[0], "-test.run=^TestTimezoneZoneinfo$")
+		cmd.Env = append(slices.Clone(env), "TIMEZONE_HELPER="+kind, "ZONEINFO="+source)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Errorf("%s helper process: %v\n%s", kind, err, out)
 		}
 	}
 }
