@@ -96,7 +96,8 @@ func zipHasZone(path, name string) bool {
 		return false
 	}
 	count, size, offset := int(le.Uint16(tail[10:])), int(le.Uint32(tail[12:])), int(le.Uint32(tail[16:]))
-	if offset > len(data) || size > len(data)-offset {
+	// Offsets above 2 GiB turn negative on 32-bit platforms.
+	if offset < 0 || size < 0 || offset > len(data) || size > len(data)-offset {
 		return false
 	}
 	dir := data[offset : offset+size]
@@ -115,7 +116,7 @@ func zipHasZone(path, name string) bool {
 		if entryName != name {
 			continue
 		}
-		if method != 0 || local > len(data) || len(data)-local < 30+nameLen {
+		if method != 0 || local < 0 || local > len(data) || len(data)-local < 30+nameLen {
 			return false
 		}
 		header := data[local:]
@@ -124,7 +125,7 @@ func zipHasZone(path, name string) bool {
 			return false
 		}
 		start := local + 30 + nameLen + int(le.Uint16(header[28:]))
-		if start > len(data) || length > len(data)-start {
+		if length < 0 || start > len(data) || length > len(data)-start {
 			return false
 		}
 		_, err := time.LoadLocationFromTZData(name, data[start:start+length])
