@@ -19,7 +19,7 @@ import (
 // "../evil" (zip slip), or when it is not a local path in the sense of
 // filepath.IsLocal: on Windows that rejects a volume name such as "C:evil",
 // any other ':' such as the alternate data stream in "a:b", and reserved
-// device names such as "NUL" or "con.txt".
+// device names such as "NUL" or "COM1".
 func EntryPath(root, name string) (string, error) {
 	relative := strings.TrimLeft(filepath.FromSlash(name), string(filepath.Separator))
 	path := filepath.Join(root, relative)
