@@ -3,6 +3,7 @@ package validate
 import (
 	"archive/zip"
 	"bytes"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -71,6 +72,18 @@ var zoneinfoCases = map[string][]struct {
 		{"asia/shanghai", true},
 		{"UTC", true},
 	},
+	// time.LoadLocation skips compressed entries and archives with a comment,
+	// so the system zone data decides.
+	"deflate": {
+		{"Test/Zone", false},
+		{"Asia/Shanghai", true},
+		{"asia/shanghai", false},
+	},
+	"comment": {
+		{"Test/Zone", false},
+		{"Asia/Shanghai", true},
+		{"asia/shanghai", false},
+	},
 }
 
 func TestTimezoneZoneinfo(t *testing.T) {
@@ -94,26 +107,43 @@ func TestTimezoneZoneinfo(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	var buf bytes.Buffer
-	zw := zip.NewWriter(&buf)
-	for _, name := range []string{"Test/Zone", "asia/shanghai"} {
-		w, err := zw.CreateHeader(&zip.FileHeader{Name: name, Method: zip.Store})
-		if err != nil {
+	archives := map[string]string{}
+	for kind, write := range map[string]func(*zip.Writer, string) (io.Writer, error){
+		"zip": func(zw *zip.Writer, name string) (io.Writer, error) {
+			return zw.CreateHeader(&zip.FileHeader{Name: name, Method: zip.Store})
+		},
+		"deflate": func(zw *zip.Writer, name string) (io.Writer, error) {
+			return zw.CreateHeader(&zip.FileHeader{Name: name, Method: zip.Deflate})
+		},
+		"comment": func(zw *zip.Writer, name string) (io.Writer, error) {
+			if err := zw.SetComment("zones"); err != nil {
+				return nil, err
+			}
+			return zw.CreateHeader(&zip.FileHeader{Name: name, Method: zip.Store})
+		},
+	} {
+		var buf bytes.Buffer
+		zw := zip.NewWriter(&buf)
+		for _, name := range []string{"Test/Zone", "asia/shanghai"} {
+			w, err := write(zw, name)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := w.Write(utcTZif); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := zw.Close(); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := w.Write(utcTZif); err != nil {
+		archives[kind] = filepath.Join(t.TempDir(), "zoneinfo.zip")
+		if err := os.WriteFile(archives[kind], buf.Bytes(), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if err := zw.Close(); err != nil {
-		t.Fatal(err)
-	}
-	archive := filepath.Join(t.TempDir(), "zoneinfo.zip")
-	if err := os.WriteFile(archive, buf.Bytes(), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	archives["dir"] = dir
 	env := slices.DeleteFunc(os.Environ(), func(v string) bool { return strings.HasPrefix(v, "ZONEINFO=") })
-	for kind, source := range map[string]string{"dir": dir, "zip": archive} {
+	for kind, source := range archives {
 		cmd := exec.Command(os.Args[0], "-test.run=^TestTimezoneZoneinfo$")
 		cmd.Env = append(slices.Clone(env), "TIMEZONE_HELPER="+kind, "ZONEINFO="+source)
 		if out, err := cmd.CombinedOutput(); err != nil {

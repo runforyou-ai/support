@@ -1,8 +1,7 @@
 package validate
 
 import (
-	"archive/zip"
-	"io"
+	"encoding/binary"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -82,28 +81,53 @@ func Timezone(name string) bool {
 	return true
 }
 
-// zipHasZone reports whether the zip archive at path holds an entry named
-// exactly name with parsable zone data.
+// zipHasZone reports whether the zip archive at path holds parsable zone data
+// for name as time.LoadLocation reads it: the end of central directory
+// record must close the file, and the first central directory entry named
+// exactly name must be stored uncompressed.
 func zipHasZone(path, name string) bool {
-	reader, err := zip.OpenReader(path)
-	if err != nil {
+	data, err := os.ReadFile(path)
+	if err != nil || len(data) < 22 {
 		return false
 	}
-	defer func() { _ = reader.Close() }()
-	for _, entry := range reader.File {
-		if entry.Name != name {
+	le := binary.LittleEndian
+	tail := data[len(data)-22:]
+	if le.Uint32(tail) != 0x06054b50 {
+		return false
+	}
+	count, size, offset := int(le.Uint16(tail[10:])), int(le.Uint32(tail[12:])), int(le.Uint32(tail[16:]))
+	if offset > len(data) || size > len(data)-offset {
+		return false
+	}
+	dir := data[offset : offset+size]
+	for range count {
+		if len(dir) < 46 || le.Uint32(dir) != 0x02014b50 {
+			return false
+		}
+		method, length := le.Uint16(dir[10:]), int(le.Uint32(dir[24:]))
+		nameLen, extraLen, commentLen := int(le.Uint16(dir[28:])), int(le.Uint16(dir[30:])), int(le.Uint16(dir[32:]))
+		local := int(le.Uint32(dir[42:]))
+		if len(dir) < 46+nameLen+extraLen+commentLen {
+			return false
+		}
+		entryName := string(dir[46 : 46+nameLen])
+		dir = dir[46+nameLen+extraLen+commentLen:]
+		if entryName != name {
 			continue
 		}
-		file, err := entry.Open()
-		if err != nil {
+		if method != 0 || local > len(data) || len(data)-local < 30+nameLen {
 			return false
 		}
-		data, err := io.ReadAll(file)
-		_ = file.Close()
-		if err != nil {
+		header := data[local:]
+		if le.Uint32(header) != 0x04034b50 || le.Uint16(header[8:]) != method ||
+			int(le.Uint16(header[26:])) != nameLen || string(header[30:30+nameLen]) != name {
 			return false
 		}
-		_, err = time.LoadLocationFromTZData(name, data)
+		start := local + 30 + nameLen + int(le.Uint16(header[28:]))
+		if start > len(data) || length > len(data)-start {
+			return false
+		}
+		_, err := time.LoadLocationFromTZData(name, data[start:start+length])
 		return err == nil
 	}
 	return false
