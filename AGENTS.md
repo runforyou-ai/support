@@ -5,12 +5,12 @@ General-purpose helpers for Go, organized by domain in the spirit of Laravel's `
 ## Scope
 
 - Each package covers one domain (`str`, `arr`, `mapx`, `set`, `data`, `number`, `convert`, `random`, `validate`, `filex`, `iox`); the root package `support` holds generic value helpers and shared type constraints.
-- The module targets the Go version in `go.mod`. Add a function only when that standard library (`strings`, `slices`, `maps`, `cmp`, `iter`, `sync`, `uuid`, builtin `new(expr)`, …) does not already provide it in a direct form.
-- Framework concerns (paths, config, routing, logging) and thin wrappers around third-party libraries are out of scope.
+- The module targets the Go version in `go.mod`. Prefer the standard library (`strings`, `slices`, `maps`, `cmp`, `iter`, `sync`, `uuid`, builtin `new(expr)`, …); add a helper only when stdlib does not already provide it in a direct form.
+- Third-party dependencies are allowed when they fill a clear gap that is not practical to maintain in-tree. Prefer a small number of well-known libraries over inventing replacements. Do not wrap a third-party library solely to re-export it; applications should depend on that library directly.
+- Framework concerns (paths, config, routing, logging) are out of scope.
 
 ## Rules
 
-- The module has no third-party dependencies, including in tests.
 - Subpackages may import the root package `support`; the root package imports no subpackage.
 - String helpers operate on runes: lengths, offsets and truncation are measured in characters, never bytes.
 - Functions do not panic on ordinary input (empty values, out-of-range offsets, nil maps); they return zero values or the input unchanged. Lookups that may miss return `(value, ok)`.

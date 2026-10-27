@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/runforyou-ai/support.svg)](https://pkg.go.dev/github.com/runforyou-ai/support)
 
-Go 通用辅助函数库，参照 Laravel `Illuminate\Support` 按领域分包，不依赖任何第三方库。
+Go 通用辅助函数库，参照 Laravel `Illuminate\Support` 按领域分包。优先使用标准库；第三方依赖仅在标准库难以覆盖时引入。
 
 [English](README.md)
 

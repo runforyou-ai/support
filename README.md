@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/runforyou-ai/support.svg)](https://pkg.go.dev/github.com/runforyou-ai/support)
 
-General-purpose helpers for Go, organized by domain in the spirit of Laravel's `Illuminate\Support`. Zero third-party dependencies.
+General-purpose helpers for Go, organized by domain in the spirit of Laravel's `Illuminate\Support`. Prefer the standard library; third-party dependencies are allowed when they fill a clear gap.
 
 [简体中文](README.zh-CN.md)
 
